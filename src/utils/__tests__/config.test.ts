@@ -30,7 +30,6 @@ describe('config', () => {
         openaiApiKey: '',
         arkApiKey: '',
         imageOutputDir: './output',
-        apiTimeout: 30000,
         skipPromptEnhancement: false,
         imageQuality: 'fast' as const,
       }
@@ -55,7 +54,6 @@ describe('config', () => {
         openaiApiKey: '',
         arkApiKey: '',
         imageOutputDir: './output',
-        apiTimeout: 30000,
         skipPromptEnhancement: false,
         imageQuality: 'fast' as const,
       }
@@ -71,31 +69,6 @@ describe('config', () => {
       }
     })
 
-    it('should return error when apiTimeout is invalid', () => {
-      // Arrange
-      const config = {
-        imageProvider: 'gemini' as const,
-        geminiApiKey: 'valid-api-key-12345',
-        openaiApiKey: '',
-        arkApiKey: '',
-        imageOutputDir: './output',
-        apiTimeout: -1000, // Invalid negative timeout
-        skipPromptEnhancement: false,
-        imageQuality: 'fast' as const,
-      }
-
-      // Act
-      const result = validateConfig(config)
-
-      // Assert
-      expect(result.success).toBe(false)
-      if (!result.success) {
-        expect(result.error).toBeInstanceOf(ConfigError)
-        expect(result.error.message).toContain('timeout')
-        expect(result.error.message).toContain('positive')
-      }
-    })
-
     it('should accept valid imageQuality values', () => {
       // Arrange
       const qualities = ['fast', 'balanced', 'quality'] as const
@@ -107,7 +80,6 @@ describe('config', () => {
           openaiApiKey: '',
           arkApiKey: '',
           imageOutputDir: './output',
-          apiTimeout: 30000,
           skipPromptEnhancement: false,
           imageQuality: quality,
         }
@@ -128,7 +100,6 @@ describe('config', () => {
         openaiApiKey: '',
         arkApiKey: '',
         imageOutputDir: './output',
-        apiTimeout: 30000,
         skipPromptEnhancement: false,
         imageQuality: 'invalid' as any,
       }
@@ -155,7 +126,6 @@ describe('config', () => {
         openaiApiKey: '',
         arkApiKey: '',
         imageOutputDir: './output',
-        apiTimeout: 30000,
         skipPromptEnhancement: false,
         imageQuality: 'fast' as const,
       }
@@ -178,7 +148,6 @@ describe('config', () => {
         openaiApiKey: 'test-openai-api-key-12345',
         arkApiKey: '',
         imageOutputDir: './output',
-        apiTimeout: 30000,
         skipPromptEnhancement: false,
         imageQuality: 'fast' as const,
       }
@@ -198,7 +167,6 @@ describe('config', () => {
         openaiApiKey: '',
         arkApiKey: '',
         imageOutputDir: './output',
-        apiTimeout: 30000,
         skipPromptEnhancement: false,
         imageQuality: 'fast' as const,
       }
@@ -224,7 +192,6 @@ describe('config', () => {
           openaiApiKey: '',
           arkApiKey,
           imageOutputDir: './output',
-          apiTimeout: 30000,
           skipPromptEnhancement: false,
           imageQuality: 'fast' as const,
         }
@@ -252,7 +219,6 @@ describe('config', () => {
         openaiApiKey: '',
         arkApiKey: '  test-ark-key  ',
         imageOutputDir: './output',
-        apiTimeout: 30000,
         skipPromptEnhancement: false,
         imageQuality: 'fast' as const,
       }
@@ -293,7 +259,6 @@ describe('config', () => {
       if (result.success) {
         expect(result.data.geminiApiKey).toBe('test-api-key-12345')
         expect(result.data.imageOutputDir).toBe('/custom/output')
-        expect(result.data.apiTimeout).toBe(30000) // Default timeout
       }
     })
 
@@ -326,7 +291,6 @@ describe('config', () => {
       if (result.success) {
         expect(result.data.imageProvider).toBe('seedream')
         expect(result.data.arkApiKey).toBe('test-ark-api-key')
-        expect(result.data.apiTimeout).toBe(30000)
       }
     })
 
@@ -355,7 +319,6 @@ describe('config', () => {
       if (result.success) {
         expect(result.data.geminiApiKey).toBe('test-api-key-12345')
         expect(result.data.imageOutputDir).toBe('./output') // Default value
-        expect(result.data.apiTimeout).toBe(30000)
       }
     })
 

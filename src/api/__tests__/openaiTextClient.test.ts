@@ -24,7 +24,6 @@ describe('openaiTextClient', () => {
     geminiApiKey: '',
     openaiApiKey: 'test-openai-api-key-12345',
     imageOutputDir: './output',
-    apiTimeout: 30000,
     skipPromptEnhancement: false,
     imageQuality: 'fast',
   }

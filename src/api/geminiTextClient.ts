@@ -11,7 +11,7 @@ import type { Config } from '../utils/config.js'
 import { GeminiAPIError, NetworkError } from '../utils/errors.js'
 import { DEFAULT_MIME_TYPE } from '../utils/mimeUtils.js'
 import { isNetworkError } from './errorClassification.js'
-import type { GenerationConfig, TextClient } from './textClient.js'
+import { type GenerationConfig, MAX_TEXT_PROMPT_LENGTH, type TextClient } from './textClient.js'
 
 /**
  * Options for text generation
@@ -279,11 +279,11 @@ class GeminiTextClientImpl implements GeminiTextClient {
       )
     }
 
-    if (prompt.length > 100000) {
+    if (prompt.length > MAX_TEXT_PROMPT_LENGTH) {
       return Err(
         new GeminiAPIError(
           'Prompt too long',
-          'Please provide a shorter prompt (under 100,000 characters)'
+          `Please provide a shorter prompt (under ${MAX_TEXT_PROMPT_LENGTH.toLocaleString('en-US')} characters)`
         )
       )
     }

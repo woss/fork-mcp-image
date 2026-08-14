@@ -7,11 +7,6 @@ import { GEMINI_MODELS } from '../types/mcp.js'
 import { SUPPORTED_EXTENSIONS } from './mimeUtils.js'
 
 /**
- * Result type pattern for explicit error handling
- */
-export type Result<T, E> = { ok: true; value: T } | { ok: false; error: E }
-
-/**
  * Base class for all application errors with structured error support.
  *
  * Caller-visible error fields (code, message, suggestion) are available

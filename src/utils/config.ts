@@ -18,7 +18,6 @@ export interface Config {
   openaiApiKey: string
   arkApiKey: string
   imageOutputDir: string
-  apiTimeout: number
   skipPromptEnhancement: boolean // Skip prompt enhancement for direct control
   imageQuality: ImageQuality
 }
@@ -29,7 +28,6 @@ export interface Config {
 const DEFAULT_CONFIG = {
   imageProvider: 'gemini',
   imageOutputDir: './output',
-  apiTimeout: 30000, // 30 seconds
 } as const
 
 function readEnv(name: string): string | undefined {
@@ -113,16 +111,6 @@ export function validateConfig(config: Config): Result<Config, ConfigError> {
     )
   }
 
-  // Validate apiTimeout
-  if (config.apiTimeout <= 0) {
-    return Err(
-      new ConfigError(
-        'API timeout must be a positive number',
-        'Set a positive timeout value in milliseconds (e.g., 30000 for 30 seconds)'
-      )
-    )
-  }
-
   // Validate imageOutputDir (basic check - non-empty string)
   if (!config.imageOutputDir || config.imageOutputDir.trim().length === 0) {
     return Err(
@@ -157,7 +145,6 @@ export function getConfig(): Result<Config, ConfigError> {
     openaiApiKey: readEnv('OPENAI_API_KEY') || '',
     arkApiKey: (readEnv('ARK_API_KEY') || '').trim(),
     imageOutputDir: readEnv('IMAGE_OUTPUT_DIR') || DEFAULT_CONFIG.imageOutputDir,
-    apiTimeout: DEFAULT_CONFIG.apiTimeout,
     skipPromptEnhancement: readEnv('SKIP_PROMPT_ENHANCEMENT') === 'true',
     imageQuality: (readEnv('IMAGE_QUALITY') || 'fast') as ImageQuality,
   }

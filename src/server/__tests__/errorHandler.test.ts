@@ -172,9 +172,9 @@ describe('ErrorHandler', () => {
       const result = await ErrorHandler.wrapWithResultType(successOperation)
 
       // Assert
-      expect(result.ok).toBe(true)
-      if (result.ok) {
-        expect(result.value).toBe('success result')
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.data).toBe('success result')
       }
       expect(successOperation).toHaveBeenCalledOnce()
     })
@@ -188,8 +188,8 @@ describe('ErrorHandler', () => {
       const result = await ErrorHandler.wrapWithResultType(failedOperation)
 
       // Assert
-      expect(result.ok).toBe(false)
-      if (!result.ok) {
+      expect(result.success).toBe(false)
+      if (!result.success) {
         expect(result.error).toBe(error)
       }
       expect(failedOperation).toHaveBeenCalledOnce()
@@ -204,8 +204,8 @@ describe('ErrorHandler', () => {
       const result = await ErrorHandler.wrapWithResultType(failedOperation)
 
       // Assert
-      expect(result.ok).toBe(false)
-      if (!result.ok) {
+      expect(result.success).toBe(false)
+      if (!result.success) {
         expect(result.error).toBeInstanceOf(Error)
         expect(result.error.message).toBe('Unknown error')
       }
@@ -234,9 +234,9 @@ describe('ErrorHandler', () => {
       const result = await ErrorHandler.wrapWithResultType(testOperation, 'test-context')
 
       // Assert
-      expect(result.ok).toBe(true)
-      if (result.ok) {
-        expect(result.value).toBe('test result')
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.data).toBe('test result')
       }
     })
 
@@ -249,8 +249,8 @@ describe('ErrorHandler', () => {
       const result = await ErrorHandler.wrapWithResultType(testOperation, 'network-test')
 
       // Assert
-      expect(result.ok).toBe(false)
-      if (!result.ok) {
+      expect(result.success).toBe(false)
+      if (!result.success) {
         expect(result.error).toBe(testError)
       }
     })

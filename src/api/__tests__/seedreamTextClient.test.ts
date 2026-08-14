@@ -14,7 +14,6 @@ const testConfig: Config = {
   openaiApiKey: '',
   arkApiKey: DUMMY_API_KEY,
   imageOutputDir: './output',
-  apiTimeout: 30000,
   skipPromptEnhancement: false,
   imageQuality: 'fast',
 }

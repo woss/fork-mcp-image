@@ -5,8 +5,8 @@
 
 import { existsSync } from 'node:fs'
 import { extname } from 'node:path'
-import type { AspectRatio, GenerateImageParams } from '../types/mcp.js'
-import { IMAGE_QUALITY_VALUES } from '../types/mcp.js'
+import type { GenerateImageParams } from '../types/mcp.js'
+import { ASPECT_RATIO_VALUES, IMAGE_QUALITY_VALUES } from '../types/mcp.js'
 import type { Result } from '../types/result.js'
 import { Err, Ok } from '../types/result.js'
 import { InputValidationError } from '../utils/errors.js'
@@ -16,23 +16,7 @@ import { SUPPORTED_EXTENSIONS, SUPPORTED_MIME_TYPES } from '../utils/mimeUtils.j
 const PROMPT_MIN_LENGTH = 1
 const PROMPT_MAX_LENGTH = 4000
 export const MAX_IMAGE_SIZE = 10 * 1024 * 1024 // 10MB in bytes
-const SUPPORTED_ASPECT_RATIOS: readonly AspectRatio[] = [
-  '1:1',
-  '1:4',
-  '1:8',
-  '2:3',
-  '3:2',
-  '3:4',
-  '4:1',
-  '4:3',
-  '4:5',
-  '5:4',
-  '8:1',
-  '9:16',
-  '16:9',
-  '21:9',
-] as const
-
+const SUPPORTED_ASPECT_RATIOS = ASPECT_RATIO_VALUES
 const SUPPORTED_QUALITY_VALUES = IMAGE_QUALITY_VALUES
 
 /**
