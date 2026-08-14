@@ -26,6 +26,7 @@ import {
 } from '../business/structuredPromptGenerator.js'
 // Types
 import type { GenerateImageParams, MCPServerConfig } from '../types/mcp.js'
+import { ASPECT_RATIO_VALUES, IMAGE_QUALITY_VALUES, IMAGE_SIZE_VALUES } from '../types/mcp.js'
 
 // Utilities
 import { type Config, getConfig } from '../utils/config.js'
@@ -188,28 +189,13 @@ export class MCPServerImpl {
                 type: 'string' as const,
                 description:
                   'Set the requested output aspect ratio. Omit to use the provider default.',
-                enum: [
-                  '1:1',
-                  '1:4',
-                  '1:8',
-                  '2:3',
-                  '3:2',
-                  '3:4',
-                  '4:1',
-                  '4:3',
-                  '4:5',
-                  '5:4',
-                  '8:1',
-                  '9:16',
-                  '16:9',
-                  '21:9',
-                ],
+                enum: [...ASPECT_RATIO_VALUES],
               },
               imageSize: {
                 type: 'string' as const,
                 description:
                   "Set the requested output size to 1K, 2K, or 4K. Omit to use the selected provider and quality preset's default. With Seedream, use 1K or 2K.",
-                enum: ['1K', '2K', '4K'],
+                enum: [...IMAGE_SIZE_VALUES],
               },
               purpose: {
                 type: 'string' as const,
@@ -220,7 +206,7 @@ export class MCPServerImpl {
                 type: 'string' as const,
                 description:
                   'Set only when the user requests a quality level; otherwise omit to use the server default. fast prioritizes speed, balanced trades speed for detail, and quality prioritizes fidelity.',
-                enum: ['fast', 'balanced', 'quality'],
+                enum: [...IMAGE_QUALITY_VALUES],
               },
             },
             required: ['prompt'],
@@ -435,8 +421,8 @@ export class MCPServerImpl {
       return this.responseBuilder.buildSuccessResponse(generationResult.data, saveResult.data)
     }, 'image-generation')
 
-    if (result.ok) {
-      return result.value
+    if (result.success) {
+      return result.data
     }
 
     return this.responseBuilder.buildErrorResponse(result.error)

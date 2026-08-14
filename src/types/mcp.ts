@@ -10,26 +10,31 @@
 /**
  * Supported aspect ratios for Gemini image generation
  */
-export type AspectRatio =
-  | '1:1' // Square (default)
-  | '1:4' // Tall vertical
-  | '1:8' // Ultra-tall vertical
-  | '2:3' // Portrait
-  | '3:2' // Landscape
-  | '3:4' // Portrait
-  | '4:1' // Ultra-wide horizontal
-  | '4:3' // Landscape
-  | '4:5' // Portrait
-  | '5:4' // Landscape
-  | '8:1' // Extreme horizontal
-  | '9:16' // Vertical (social media)
-  | '16:9' // Horizontal (cinematic)
-  | '21:9' // Ultra-wide
+export const ASPECT_RATIO_VALUES = [
+  '1:1', // Square (default)
+  '1:4', // Tall vertical
+  '1:8', // Ultra-tall vertical
+  '2:3', // Portrait
+  '3:2', // Landscape
+  '3:4', // Portrait
+  '4:1', // Ultra-wide horizontal
+  '4:3', // Landscape
+  '4:5', // Portrait
+  '5:4', // Landscape
+  '8:1', // Extreme horizontal
+  '9:16', // Vertical (social media)
+  '16:9', // Horizontal (cinematic)
+  '21:9', // Ultra-wide
+] as const
+
+export type AspectRatio = (typeof ASPECT_RATIO_VALUES)[number]
 
 /**
  * Supported image sizes for high-resolution output
  */
-export type ImageSize = '1K' | '2K' | '4K'
+export const IMAGE_SIZE_VALUES = ['1K', '2K', '4K'] as const
+
+export type ImageSize = (typeof IMAGE_SIZE_VALUES)[number]
 
 /**
  * Provider-neutral output formats supported by OpenAI and Seedream.
@@ -42,7 +47,9 @@ export type ImageOutputFormat = 'png' | 'jpeg'
  * - 'balanced': Nano Banana 2 with enhanced thinking, better quality
  * - 'quality': Nano Banana Pro, highest quality output
  */
-export type ImageQuality = 'fast' | 'balanced' | 'quality'
+export const IMAGE_QUALITY_VALUES = ['fast', 'balanced', 'quality'] as const
+
+export type ImageQuality = (typeof IMAGE_QUALITY_VALUES)[number]
 
 /**
  * Supported image providers.
@@ -50,25 +57,9 @@ export type ImageQuality = 'fast' | 'balanced' | 'quality'
  * - 'openai': OpenAI GPT Image models such as gpt-image-2
  * - 'seedream': BytePlus Seedream models through ModelArk
  */
-export type ImageProvider = 'gemini' | 'openai' | 'seedream'
+export const IMAGE_PROVIDER_VALUES = ['gemini', 'openai', 'seedream'] as const
 
-/**
- * Supported quality preset values
- */
-export const IMAGE_QUALITY_VALUES: readonly ImageQuality[] = [
-  'fast',
-  'balanced',
-  'quality',
-] as const
-
-/**
- * Supported image provider values.
- */
-export const IMAGE_PROVIDER_VALUES: readonly ImageProvider[] = [
-  'gemini',
-  'openai',
-  'seedream',
-] as const
+export type ImageProvider = (typeof IMAGE_PROVIDER_VALUES)[number]
 
 /**
  * Gemini image generation model identifiers

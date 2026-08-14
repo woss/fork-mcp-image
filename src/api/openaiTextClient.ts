@@ -7,8 +7,11 @@ import type { Result } from '../types/result.js'
 import { Err, Ok } from '../types/result.js'
 import type { Config } from '../utils/config.js'
 import { ImageAPIError, NetworkError } from '../utils/errors.js'
-import { DEFAULT_MIME_TYPE, normalizeMimeType } from '../utils/mimeUtils.js'
 import { extractStatusCode, isNetworkError } from './errorClassification.js'
+import {
+  buildOpenAICompatibleInput,
+  validateOpenAICompatiblePrompt,
+} from './openaiCompatibleText.js'
 import type { GenerationConfig, TextClient } from './textClient.js'
 
 interface OpenAITextResponse {
@@ -41,7 +44,7 @@ class OpenAITextClientImpl implements TextClient {
     prompt: string,
     config: GenerationConfig = {}
   ): Promise<Result<string, ImageAPIError | NetworkError>> {
-    const validationResult = this.validatePromptInput(prompt)
+    const validationResult = validateOpenAICompatiblePrompt(prompt)
     if (!validationResult.success) {
       return validationResult
     }
@@ -52,7 +55,7 @@ class OpenAITextClientImpl implements TextClient {
       const response = (await this.client.responses.create(
         {
           model: this.modelName,
-          input: this.buildInput(prompt, config),
+          input: buildOpenAICompatibleInput(prompt, config),
           ...(config.systemInstruction && { instructions: config.systemInstruction }),
           max_output_tokens: config.maxTokens ?? 8192,
           temperature: config.temperature ?? 0.7,
@@ -97,31 +100,6 @@ class OpenAITextClientImpl implements TextClient {
     } catch (error) {
       return this.handleError(error, 'connection validation')
     }
-  }
-
-  private buildInput(prompt: string, config: GenerationConfig) {
-    if (!config.inputImage) {
-      return prompt
-    }
-
-    const mimeType = normalizeMimeType(config.inputImageMimeType ?? DEFAULT_MIME_TYPE)
-
-    return [
-      {
-        role: 'user' as const,
-        content: [
-          {
-            type: 'input_text' as const,
-            text: prompt,
-          },
-          {
-            type: 'input_image' as const,
-            image_url: `data:${mimeType};base64,${config.inputImage}`,
-            detail: 'auto' as const,
-          },
-        ],
-      },
-    ]
   }
 
   private extractResponseText(response: OpenAITextResponse): string {
@@ -184,18 +162,6 @@ class OpenAITextClientImpl implements TextClient {
     }
 
     return 'Check OpenAI API configuration and try again'
-  }
-
-  private validatePromptInput(prompt: string): Result<true, ImageAPIError> {
-    if (!prompt || prompt.trim().length === 0) {
-      return Err(new ImageAPIError('Empty prompt provided', 'Please provide a non-empty prompt'))
-    }
-
-    if (prompt.length > 100000) {
-      return Err(new ImageAPIError('Prompt too long', 'Please provide a shorter prompt'))
-    }
-
-    return Ok(true)
   }
 }
 

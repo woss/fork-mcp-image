@@ -4,13 +4,14 @@
  */
 
 import type { McpToolResponse } from '../types/mcp.js'
+import type { Result } from '../types/result.js'
+import { Err, Ok } from '../types/result.js'
 import {
   ConfigError,
   FileOperationError,
   GeminiAPIError,
   InputValidationError,
   NetworkError,
-  type Result,
 } from '../utils/errors.js'
 import { Logger, sanitizeText } from '../utils/logger.js'
 
@@ -79,7 +80,7 @@ async function wrapWithResultType<T>(
 ): Promise<Result<T, Error>> {
   try {
     const result = await operation()
-    return { ok: true, value: result }
+    return Ok(result)
   } catch (error) {
     const finalError = error instanceof Error ? error : new Error('Unknown error')
 
@@ -87,7 +88,7 @@ async function wrapWithResultType<T>(
       logger.error(context, 'Operation failed', finalError)
     }
 
-    return { ok: false, error: finalError }
+    return Err(finalError)
   }
 }
 

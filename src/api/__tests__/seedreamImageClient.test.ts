@@ -40,7 +40,6 @@ const testConfig: Config = {
   openaiApiKey: '',
   arkApiKey: DUMMY_API_KEY,
   imageOutputDir: './output',
-  apiTimeout: 30000,
   skipPromptEnhancement: false,
   imageQuality: 'fast',
 }
@@ -675,10 +674,7 @@ describe('seedreamImageClient', () => {
   it('constructs the image AbortSignal from the fixed 300000 ms timeout only', async () => {
     const timeoutSpy = vi.spyOn(AbortSignal, 'timeout')
 
-    const result = await createClient({
-      ...testConfig,
-      apiTimeout: 1,
-    }).generateImage({ prompt: PRIVATE_PROMPT })
+    const result = await createClient(testConfig).generateImage({ prompt: PRIVATE_PROMPT })
 
     expect(result.success).toBe(true)
     expect(timeoutSpy).toHaveBeenCalledTimes(1)

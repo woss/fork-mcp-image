@@ -1,6 +1,8 @@
 import type { Result } from '../types/result.js'
 import type { GeminiAPIError, ImageAPIError, NetworkError } from '../utils/errors.js'
 
+export const MAX_TEXT_PROMPT_LENGTH = 100_000
+
 /**
  * Options for text generation used by the prompt enhancer.
  */

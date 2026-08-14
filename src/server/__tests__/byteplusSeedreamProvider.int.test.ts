@@ -531,8 +531,7 @@ afterEach(async () => {
 //   only the optional single-image field allowed by preflight.
 // - False prompt flags add no enhancement instruction; true prompt-only flags/purpose affect only
 //   the one text enhancement input and never add native image wire fields.
-// - Seedream image HTTP uses an AbortSignal derived from the provider-local fixed 300000 ms without
-//   changing existing apiTimeout=30000.
+// - Seedream image HTTP uses an AbortSignal derived from the provider-local fixed 300000 ms.
 // Verification items:
 // - Preflight occurs before any text or image transport call.
 // - Prompt generator call count is 0 or 1 according to the boundary row, never more than 1.
