@@ -14,7 +14,6 @@ import {
   type ListToolsResult,
 } from '@modelcontextprotocol/sdk/types.js'
 import type { ImageApiParams, ImageClient } from '../api/imageClient.js'
-import type { TextClient } from '../api/textClient.js'
 // Business logic
 import { createFileManager, type FileManager } from '../business/fileManager.js'
 import { MAX_IMAGE_SIZE, validateGenerateImageParams } from '../business/inputValidator.js'
@@ -25,11 +24,16 @@ import {
   type StructuredPromptGenerator,
 } from '../business/structuredPromptGenerator.js'
 // Types
-import type { GenerateImageParams, MCPServerConfig } from '../types/mcp.js'
-import { ASPECT_RATIO_VALUES, IMAGE_QUALITY_VALUES, IMAGE_SIZE_VALUES } from '../types/mcp.js'
+import type { GenerateImageParams, ImageProvider, MCPServerConfig } from '../types/mcp.js'
+import {
+  ASPECT_RATIO_VALUES,
+  IMAGE_PROVIDER_VALUES,
+  IMAGE_QUALITY_VALUES,
+  IMAGE_SIZE_VALUES,
+} from '../types/mcp.js'
 
 // Utilities
-import { type Config, getConfig } from '../utils/config.js'
+import { type Config, getConfig, validateProviderCredentials } from '../utils/config.js'
 import { InputValidationError } from '../utils/errors.js'
 import { Logger } from '../utils/logger.js'
 import {
@@ -106,6 +110,14 @@ async function readInputImageWithinLimit(filePath: string): Promise<Buffer> {
 }
 
 /**
+ * Clients backing a single image provider.
+ */
+interface ProviderClients {
+  imageClient: ImageClient
+  structuredPromptGenerator: StructuredPromptGenerator | null
+}
+
+/**
  * Simplified MCP server
  */
 export class MCPServerImpl {
@@ -115,9 +127,7 @@ export class MCPServerImpl {
   private fileManager: FileManager
   private responseBuilder: ResponseBuilder
   private securityManager: SecurityManager
-  private structuredPromptGenerator: StructuredPromptGenerator | null = null
-  private textClient: TextClient | null = null
-  private imageClient: ImageClient | null = null
+  private clientsByProvider = new Map<ImageProvider, ProviderClients>()
 
   constructor(config: Partial<MCPServerConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config }
@@ -208,6 +218,12 @@ export class MCPServerImpl {
                   'Set only when the user requests a quality level; otherwise omit to use the server default. fast prioritizes speed, balanced trades speed for detail, and quality prioritizes fidelity.',
                 enum: [...IMAGE_QUALITY_VALUES],
               },
+              provider: {
+                type: 'string' as const,
+                description:
+                  'Set only when the user requests a specific image provider; otherwise omit to use the server default. The provider must have its API key configured on the server.',
+                enum: [...IMAGE_PROVIDER_VALUES],
+              },
             },
             required: ['prompt'],
           },
@@ -232,38 +248,39 @@ export class MCPServerImpl {
   }
 
   /**
-   * Initialize provider clients lazily.
+   * Initialize provider clients lazily, cached per provider so that requests
+   * alternating between providers do not reuse another provider's clients.
    */
-  private async initializeClients(
+  private getProviderClients(
     config: Config,
+    providerName: ImageProvider,
     provider: ImageProviderDefinition
-  ): Promise<void> {
-    if (this.imageClient && (config.skipPromptEnhancement || this.structuredPromptGenerator)) {
-      return
+  ): ProviderClients {
+    const cached = this.clientsByProvider.get(providerName)
+    if (cached && (config.skipPromptEnhancement || cached.structuredPromptGenerator)) {
+      return cached
     }
 
-    // Initialize Text Client for prompt generation when enhancement is enabled.
-    if (!config.skipPromptEnhancement && !this.textClient) {
-      this.textClient = provider.createTextClient(config)
-    }
+    // Initialize Structured Prompt Generator with its Text Client when enhancement is enabled.
+    const structuredPromptGenerator = config.skipPromptEnhancement
+      ? null
+      : createStructuredPromptGenerator(
+          provider.createTextClient(config),
+          provider.promptGeneration.maxTokens
+        )
 
-    // Initialize Structured Prompt Generator
-    if (!config.skipPromptEnhancement && this.textClient && !this.structuredPromptGenerator) {
-      this.structuredPromptGenerator = createStructuredPromptGenerator(
-        this.textClient,
-        provider.promptGeneration.maxTokens
-      )
+    const clients: ProviderClients = {
+      imageClient: cached?.imageClient ?? provider.createImageClient(config),
+      structuredPromptGenerator,
     }
-
-    // Initialize image generation client.
-    if (!this.imageClient) {
-      this.imageClient = provider.createImageClient(config)
-    }
+    this.clientsByProvider.set(providerName, clients)
 
     this.logger.info('mcp-server', 'Image provider clients initialized', {
-      provider: config.imageProvider,
+      provider: providerName,
       promptEnhancement: !config.skipPromptEnhancement,
     })
+
+    return clients
   }
 
   /**
@@ -288,10 +305,21 @@ export class MCPServerImpl {
         throw configResult.error
       }
       const config = configResult.data
-      const provider = getImageProviderDefinition(config.imageProvider)
+
+      // Resolve the provider for this request, falling back to the server default.
+      const providerName = params.provider ?? config.imageProvider
+      const credentialsResult = validateProviderCredentials(config, providerName)
+      if (!credentialsResult.success) {
+        throw credentialsResult.error
+      }
+      const provider = getImageProviderDefinition(providerName)
 
       // Initialize clients
-      await this.initializeClients(config, provider)
+      const { imageClient, structuredPromptGenerator } = this.getProviderClients(
+        config,
+        providerName,
+        provider
+      )
 
       // Handle input image if provided
       let inputImageData: string | undefined
@@ -326,7 +354,7 @@ export class MCPServerImpl {
 
       // Generate structured prompt (unless skipped)
       let structuredPrompt = params.prompt
-      if (!config.skipPromptEnhancement && this.structuredPromptGenerator) {
+      if (!config.skipPromptEnhancement && structuredPromptGenerator) {
         const features: FeatureFlags = {}
         if (params.maintainCharacterConsistency !== undefined) {
           features.maintainCharacterConsistency = params.maintainCharacterConsistency
@@ -341,7 +369,7 @@ export class MCPServerImpl {
           features.useGoogleSearch = params.useGoogleSearch
         }
 
-        const promptResult = await this.structuredPromptGenerator.generateStructuredPrompt(
+        const promptResult = await structuredPromptGenerator.generateStructuredPrompt(
           params.prompt,
           features,
           inputImageData,
@@ -367,11 +395,7 @@ export class MCPServerImpl {
       }
 
       // Generate image using selected provider.
-      if (!this.imageClient) {
-        throw new Error('Image client not initialized')
-      }
-
-      const generationResult = await this.imageClient.generateImage({
+      const generationResult = await imageClient.generateImage({
         prompt: structuredPrompt,
         ...imageOptions,
       })

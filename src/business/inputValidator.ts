@@ -6,7 +6,7 @@
 import { existsSync } from 'node:fs'
 import { extname } from 'node:path'
 import type { GenerateImageParams } from '../types/mcp.js'
-import { ASPECT_RATIO_VALUES, IMAGE_QUALITY_VALUES } from '../types/mcp.js'
+import { ASPECT_RATIO_VALUES, IMAGE_PROVIDER_VALUES, IMAGE_QUALITY_VALUES } from '../types/mcp.js'
 import type { Result } from '../types/result.js'
 import { Err, Ok } from '../types/result.js'
 import { InputValidationError } from '../utils/errors.js'
@@ -18,6 +18,7 @@ const PROMPT_MAX_LENGTH = 4000
 export const MAX_IMAGE_SIZE = 10 * 1024 * 1024 // 10MB in bytes
 const SUPPORTED_ASPECT_RATIOS = ASPECT_RATIO_VALUES
 const SUPPORTED_QUALITY_VALUES = IMAGE_QUALITY_VALUES
+const SUPPORTED_PROVIDER_VALUES = IMAGE_PROVIDER_VALUES
 
 /**
  * Converts bytes to MB with proper formatting
@@ -230,6 +231,16 @@ export function validateGenerateImageParams(
       new InputValidationError(
         `Invalid quality value: "${params.quality}". Supported values: ${SUPPORTED_QUALITY_VALUES.join(', ')}`,
         `Please use one of the supported quality values: ${SUPPORTED_QUALITY_VALUES.join(', ')}`
+      )
+    )
+  }
+
+  // Validate provider parameter
+  if (params.provider !== undefined && !SUPPORTED_PROVIDER_VALUES.includes(params.provider)) {
+    return Err(
+      new InputValidationError(
+        `Invalid provider value: "${params.provider}". Supported values: ${SUPPORTED_PROVIDER_VALUES.join(', ')}`,
+        `Please use one of the supported providers: ${SUPPORTED_PROVIDER_VALUES.join(', ')}`
       )
     )
   }

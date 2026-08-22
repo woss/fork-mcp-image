@@ -39,6 +39,74 @@ function readEnv(name: string): string | undefined {
 }
 
 /**
+ * Validates the API credentials required by a single image provider.
+ *
+ * Provider selection is a per-request concern, so this check runs when a
+ * provider is actually used rather than only at startup.
+ * @param config The configuration holding the provider API keys
+ * @param provider The provider whose credentials should be validated
+ * @returns Result containing the config or ConfigError
+ */
+export function validateProviderCredentials(
+  config: Config,
+  provider: ImageProvider
+): Result<Config, ConfigError> {
+  // Validate GEMINI_API_KEY only when Gemini is the selected provider.
+  if (provider === 'gemini') {
+    if (!config.geminiApiKey || config.geminiApiKey.trim().length === 0) {
+      return Err(
+        new ConfigError(
+          'GEMINI_API_KEY is required but not provided',
+          'Set GEMINI_API_KEY environment variable with your Google AI API key'
+        )
+      )
+    }
+
+    if (config.geminiApiKey.length < 10) {
+      return Err(
+        new ConfigError(
+          'GEMINI_API_KEY appears to be invalid - must be at least 10 characters',
+          'Set the GEMINI_API_KEY environment variable to your valid Google AI API key'
+        )
+      )
+    }
+  }
+
+  // Validate OPENAI_API_KEY only when OpenAI is the selected provider.
+  if (provider === 'openai') {
+    if (!config.openaiApiKey || config.openaiApiKey.trim().length === 0) {
+      return Err(
+        new ConfigError(
+          'OPENAI_API_KEY is required but not provided',
+          'Set OPENAI_API_KEY environment variable with your OpenAI API key'
+        )
+      )
+    }
+
+    if (config.openaiApiKey.length < 10) {
+      return Err(
+        new ConfigError(
+          'OPENAI_API_KEY appears to be invalid - must be at least 10 characters',
+          'Set the OPENAI_API_KEY environment variable to your valid OpenAI API key'
+        )
+      )
+    }
+  }
+
+  // Seedream only requires a trimmed non-empty key; no vendor-specific length heuristic is defined.
+  if (provider === 'seedream' && (!config.arkApiKey || config.arkApiKey.trim().length === 0)) {
+    return Err(
+      new ConfigError(
+        'ARK_API_KEY is required but not provided',
+        'Set ARK_API_KEY environment variable with your BytePlus ModelArk API key'
+      )
+    )
+  }
+
+  return Ok(config)
+}
+
+/**
  * Validates the configuration
  * @param config The configuration to validate
  * @returns Result containing validated config or ConfigError
@@ -54,61 +122,17 @@ export function validateConfig(config: Config): Result<Config, ConfigError> {
     )
   }
 
-  // Validate GEMINI_API_KEY only when Gemini is the selected provider.
-  if (
-    config.imageProvider === 'gemini' &&
-    (!config.geminiApiKey || config.geminiApiKey.trim().length === 0)
-  ) {
-    return Err(
-      new ConfigError(
-        'GEMINI_API_KEY is required but not provided',
-        'Set GEMINI_API_KEY environment variable with your Google AI API key'
-      )
+  // Requests may select any provider, so startup only requires that at least one
+  // provider is usable. The default provider's error is reported when none is.
+  const defaultProviderCredentials = validateProviderCredentials(config, config.imageProvider)
+  if (!defaultProviderCredentials.success) {
+    const hasUsableProvider = IMAGE_PROVIDER_VALUES.some(
+      (provider) =>
+        provider !== config.imageProvider && validateProviderCredentials(config, provider).success
     )
-  }
-
-  if (config.imageProvider === 'gemini' && config.geminiApiKey.length < 10) {
-    return Err(
-      new ConfigError(
-        'GEMINI_API_KEY appears to be invalid - must be at least 10 characters',
-        'Set the GEMINI_API_KEY environment variable to your valid Google AI API key'
-      )
-    )
-  }
-
-  // Validate OPENAI_API_KEY only when OpenAI is the selected provider.
-  if (
-    config.imageProvider === 'openai' &&
-    (!config.openaiApiKey || config.openaiApiKey.trim().length === 0)
-  ) {
-    return Err(
-      new ConfigError(
-        'OPENAI_API_KEY is required but not provided',
-        'Set OPENAI_API_KEY environment variable with your OpenAI API key'
-      )
-    )
-  }
-
-  if (config.imageProvider === 'openai' && config.openaiApiKey.length < 10) {
-    return Err(
-      new ConfigError(
-        'OPENAI_API_KEY appears to be invalid - must be at least 10 characters',
-        'Set the OPENAI_API_KEY environment variable to your valid OpenAI API key'
-      )
-    )
-  }
-
-  // Seedream only requires a trimmed non-empty key; no vendor-specific length heuristic is defined.
-  if (
-    config.imageProvider === 'seedream' &&
-    (!config.arkApiKey || config.arkApiKey.trim().length === 0)
-  ) {
-    return Err(
-      new ConfigError(
-        'ARK_API_KEY is required but not provided',
-        'Set ARK_API_KEY environment variable with your BytePlus ModelArk API key'
-      )
-    )
+    if (!hasUsableProvider) {
+      return Err(defaultProviderCredentials.error)
+    }
   }
 
   // Validate imageOutputDir (basic check - non-empty string)
