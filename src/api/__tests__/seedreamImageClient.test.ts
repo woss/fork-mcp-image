@@ -124,14 +124,14 @@ afterEach(() => {
 })
 
 describe('seedreamImageClient', () => {
-  it('uses the configuration-normalized environment key in direct HTTP Authorization', async () => {
+  it('passes the untrimmed environment key to direct HTTP Authorization', async () => {
     stubSeedreamEnvironment()
     const configResult = getConfig()
     expect(configResult.success).toBe(true)
     if (!configResult.success) {
       throw configResult.error
     }
-    expect(configResult.data.arkApiKey).toBe(DUMMY_API_KEY)
+    expect(configResult.data.arkApiKey).toBe(WRAPPED_DUMMY_API_KEY)
 
     const result = await createClient(configResult.data).generateImage({
       prompt: PRIVATE_PROMPT,
@@ -139,7 +139,11 @@ describe('seedreamImageClient', () => {
 
     expect(result.success).toBe(true)
     expect(fetchMock).toHaveBeenCalledTimes(1)
-    expect(readRequest().headers.get('authorization')).toBe(`Bearer ${DUMMY_API_KEY}`)
+    const request = readRequest()
+    expect((request.init.headers as Record<string, string>).Authorization).toBe(
+      `Bearer ${WRAPPED_DUMMY_API_KEY}`
+    )
+    expect(request.headers.get('authorization')).toBe(`Bearer  \t${DUMMY_API_KEY}`)
   })
 
   it.each([
