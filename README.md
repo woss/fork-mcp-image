@@ -256,9 +256,9 @@ Set `SKIP_PROMPT_ENHANCEMENT=true` to send prompts directly to the image generat
 | `OPENAI_API_KEY` | - | Required to use the `openai` provider |
 | `ARK_API_KEY` | - | Required to use the `seedream` provider; use a ModelArk AP region key |
 
-Configure a key for every provider you want to reach. The server starts as long as at least one
-provider is configured, and a request that selects a provider without a key fails with a
-configuration error naming the missing variable.
+A request-level `provider` takes precedence over `IMAGE_PROVIDER`; if neither is set, `gemini` is
+used. The server can start without any API keys, but `generate_image` requires a key for the
+selected provider. If a key is missing, the error identifies the environment variable to configure.
 
 ### Using the BytePlus Seedream provider
 

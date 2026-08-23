@@ -57,18 +57,18 @@ afterEach(() => {
 })
 
 describe('seedreamTextClient', () => {
-  it('uses the configuration-normalized environment key in SDK Authorization', async () => {
+  it('preserves the environment key before SDK Authorization normalization', async () => {
     stubSeedreamEnvironment()
     const configResult = getConfig()
     expect(configResult.success).toBe(true)
     if (!configResult.success) {
       throw configResult.error
     }
-    expect(configResult.data.arkApiKey).toBe(DUMMY_API_KEY)
+    expect(configResult.data.arkApiKey).toBe(WRAPPED_DUMMY_API_KEY)
 
     const transport = vi
       .fn<typeof fetch>()
-      .mockResolvedValue(successfulResponse('normalized authorization response'))
+      .mockResolvedValue(successfulResponse('exact authorization response'))
     vi.stubGlobal('fetch', transport)
     const clientResult = createSeedreamTextClient(configResult.data)
     expect(clientResult.success).toBe(true)
@@ -78,10 +78,10 @@ describe('seedreamTextClient', () => {
 
     const result = await clientResult.data.generateText(PRIVATE_PROMPT)
 
-    expect(result).toEqual({ success: true, data: 'normalized authorization response' })
+    expect(result).toEqual({ success: true, data: 'exact authorization response' })
     expect(transport).toHaveBeenCalledTimes(1)
     const [, init] = transport.mock.calls[0]
-    expect(new Headers(init?.headers).get('authorization')).toBe(`Bearer ${DUMMY_API_KEY}`)
+    expect(new Headers(init?.headers).get('authorization')).toBe(`Bearer  \t${DUMMY_API_KEY}`)
   })
 
   it('serializes the pinned Responses request through the installed SDK and returns exact text', async () => {

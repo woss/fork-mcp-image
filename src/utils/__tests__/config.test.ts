@@ -22,7 +22,7 @@ describe('config', () => {
   })
 
   describe('validateConfig', () => {
-    it('should return error when GEMINI_API_KEY is missing', () => {
+    it('should validate settings without requiring provider credentials', () => {
       // Arrange
       const config = {
         imageProvider: 'gemini' as const,
@@ -38,35 +38,7 @@ describe('config', () => {
       const result = validateConfig(config)
 
       // Assert
-      expect(result.success).toBe(false)
-      if (!result.success) {
-        expect(result.error).toBeInstanceOf(ConfigError)
-        expect(result.error.message).toContain('GEMINI_API_KEY')
-        expect(result.error.suggestion).toContain('Set GEMINI_API_KEY')
-      }
-    })
-
-    it('should return error when GEMINI_API_KEY is too short', () => {
-      // Arrange
-      const config = {
-        imageProvider: 'gemini' as const,
-        geminiApiKey: 'short',
-        openaiApiKey: '',
-        arkApiKey: '',
-        imageOutputDir: './output',
-        skipPromptEnhancement: false,
-        imageQuality: 'fast' as const,
-      }
-
-      // Act
-      const result = validateConfig(config)
-
-      // Assert
-      expect(result.success).toBe(false)
-      if (!result.success) {
-        expect(result.error).toBeInstanceOf(ConfigError)
-        expect(result.error.message).toContain('at least 10 characters')
-      }
+      expect(result.success).toBe(true)
     })
 
     it('should accept valid imageQuality values', () => {
@@ -139,187 +111,63 @@ describe('config', () => {
         expect(result.data).toEqual(config)
       }
     })
-
-    it('should accept OpenAI provider without GEMINI_API_KEY', () => {
-      // Arrange
-      const config = {
-        imageProvider: 'openai' as const,
-        geminiApiKey: '',
-        openaiApiKey: 'test-openai-api-key-12345',
-        arkApiKey: '',
-        imageOutputDir: './output',
-        skipPromptEnhancement: false,
-        imageQuality: 'fast' as const,
-      }
-
-      // Act
-      const result = validateConfig(config)
-
-      // Assert
-      expect(result.success).toBe(true)
-    })
-
-    it('should require OPENAI_API_KEY for OpenAI provider', () => {
-      // Arrange
-      const config = {
-        imageProvider: 'openai' as const,
-        geminiApiKey: '',
-        openaiApiKey: '',
-        arkApiKey: '',
-        imageOutputDir: './output',
-        skipPromptEnhancement: false,
-        imageQuality: 'fast' as const,
-      }
-
-      // Act
-      const result = validateConfig(config)
-
-      // Assert
-      expect(result.success).toBe(false)
-      if (!result.success) {
-        expect(result.error).toBeInstanceOf(ConfigError)
-        expect(result.error.message).toContain('OPENAI_API_KEY')
-      }
-    })
-
-    it.each(['', '   '])(
-      'should require a trimmed non-empty ARK_API_KEY for the Seedream provider',
-      (arkApiKey) => {
-        // Arrange
-        const config = {
-          imageProvider: 'seedream' as const,
-          geminiApiKey: '',
-          openaiApiKey: '',
-          arkApiKey,
-          imageOutputDir: './output',
-          skipPromptEnhancement: false,
-          imageQuality: 'fast' as const,
-        }
-
-        // Act
-        const result = validateConfig(config)
-
-        // Assert
-        expect(result.success).toBe(false)
-        if (!result.success) {
-          expect(result.error).toBeInstanceOf(ConfigError)
-          expect(result.error.message).toContain('ARK_API_KEY')
-          if (arkApiKey.length > 0) {
-            expect(result.error.message).not.toContain(arkApiKey)
-          }
-        }
-      }
-    )
-
-    it('should accept a trimmed non-empty ARK_API_KEY without other provider keys', () => {
-      // Arrange
-      const config = {
-        imageProvider: 'seedream' as const,
-        geminiApiKey: '',
-        openaiApiKey: '',
-        arkApiKey: '  test-ark-key  ',
-        imageOutputDir: './output',
-        skipPromptEnhancement: false,
-        imageQuality: 'fast' as const,
-      }
-
-      // Act
-      const result = validateConfig(config)
-
-      // Assert
-      expect(result.success).toBe(true)
-    })
-
-    it('should accept a configured non-default provider when the default provider key is missing', () => {
-      // Arrange: requests may select openai even though IMAGE_PROVIDER is gemini
-      const config = {
-        imageProvider: 'gemini' as const,
-        geminiApiKey: '',
-        openaiApiKey: 'test-openai-api-key-12345',
-        arkApiKey: '',
-        imageOutputDir: './output',
-        skipPromptEnhancement: false,
-        imageQuality: 'fast' as const,
-      }
-
-      // Act
-      const result = validateConfig(config)
-
-      // Assert
-      expect(result.success).toBe(true)
-    })
-
-    it('should report the default provider error when no provider key is configured', () => {
-      // Arrange
-      const config = {
-        imageProvider: 'seedream' as const,
-        geminiApiKey: '',
-        openaiApiKey: '',
-        arkApiKey: '',
-        imageOutputDir: './output',
-        skipPromptEnhancement: false,
-        imageQuality: 'fast' as const,
-      }
-
-      // Act
-      const result = validateConfig(config)
-
-      // Assert
-      expect(result.success).toBe(false)
-      if (!result.success) {
-        expect(result.error).toBeInstanceOf(ConfigError)
-        expect(result.error.message).toContain('ARK_API_KEY')
-      }
-    })
   })
 
   describe('validateProviderCredentials', () => {
-    const configWithOnlyOpenAIKey = {
+    const configWithoutCredentials = {
       imageProvider: 'gemini' as const,
       geminiApiKey: '',
-      openaiApiKey: 'test-openai-api-key-12345',
+      openaiApiKey: '',
       arkApiKey: '',
       imageOutputDir: './output',
       skipPromptEnhancement: false,
       imageQuality: 'fast' as const,
     }
 
-    it('should accept the provider whose key is configured', () => {
+    it.each([
+      ['gemini' as const, { geminiApiKey: 'x' }],
+      ['openai' as const, { openaiApiKey: 'x' }],
+      ['seedream' as const, { arkApiKey: 'x' }],
+    ])('should accept %s credentials without inferring a key format', (provider, credentials) => {
+      // Arrange
+      const config = { ...configWithoutCredentials, ...credentials }
+
       // Act
-      const result = validateProviderCredentials(configWithOnlyOpenAIKey, 'openai')
+      const result = validateProviderCredentials(config, provider)
 
       // Assert
       expect(result.success).toBe(true)
     })
 
     it.each([
-      ['gemini' as const, 'GEMINI_API_KEY'],
-      ['seedream' as const, 'ARK_API_KEY'],
-    ])('should reject %s when its key is missing', (provider, expectedKeyName) => {
-      // Act
-      const result = validateProviderCredentials(configWithOnlyOpenAIKey, provider)
+      ['gemini' as const, { geminiApiKey: '' }, 'GEMINI_API_KEY'],
+      ['gemini' as const, { geminiApiKey: ' \t\n ' }, 'GEMINI_API_KEY'],
+      ['openai' as const, { openaiApiKey: '' }, 'OPENAI_API_KEY'],
+      ['openai' as const, { openaiApiKey: ' \t\n ' }, 'OPENAI_API_KEY'],
+      ['seedream' as const, { arkApiKey: '' }, 'ARK_API_KEY'],
+      ['seedream' as const, { arkApiKey: ' \t\n ' }, 'ARK_API_KEY'],
+    ])(
+      'should guide the caller when %s credentials are missing',
+      (provider, credentials, environmentVariable) => {
+        // Arrange
+        const config = { ...configWithoutCredentials, ...credentials }
 
-      // Assert
-      expect(result.success).toBe(false)
-      if (!result.success) {
-        expect(result.error).toBeInstanceOf(ConfigError)
-        expect(result.error.message).toContain(expectedKeyName)
+        // Act
+        const result = validateProviderCredentials(config, provider)
+
+        // Assert
+        expect(result.success).toBe(false)
+        if (!result.success) {
+          expect(result.error).toBeInstanceOf(ConfigError)
+          expect(result.error.message).toBe(
+            `The selected image provider "${provider}" is not configured on this server.`
+          )
+          expect(result.error.suggestion).toBe(
+            `Ask the user to configure ${environmentVariable} and restart the MCP server. After the server restarts, retry generate_image with provider "${provider}".`
+          )
+        }
       }
-    })
-
-    it('should reject a key that is shorter than the provider minimum', () => {
-      // Arrange
-      const config = { ...configWithOnlyOpenAIKey, openaiApiKey: 'short' }
-
-      // Act
-      const result = validateProviderCredentials(config, 'openai')
-
-      // Assert
-      expect(result.success).toBe(false)
-      if (!result.success) {
-        expect(result.error.message).toContain('OPENAI_API_KEY')
-      }
-    })
+    )
   })
 
   describe('getConfig', () => {
@@ -330,10 +178,16 @@ describe('config', () => {
       const result = getConfig()
 
       // Assert
-      expect(result.success).toBe(false) // Should fail because API key is required
-      if (!result.success) {
-        expect(result.error).toBeInstanceOf(ConfigError)
-        expect(result.error.message).toContain('GEMINI_API_KEY')
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.data).toMatchObject({
+          imageProvider: 'gemini',
+          geminiApiKey: '',
+          openaiApiKey: '',
+          arkApiKey: '',
+          imageOutputDir: './output',
+          imageQuality: 'fast',
+        })
       }
     })
 
@@ -385,15 +239,22 @@ describe('config', () => {
       }
     })
 
-    it('should trim ARK_API_KEY while loading Seedream environment config', () => {
-      process.env.IMAGE_PROVIDER = 'seedream'
-      process.env.ARK_API_KEY = ' \ttest-ark-api-key\n '
+    it.each([
+      ['GEMINI_API_KEY', 'geminiApiKey' as const],
+      ['OPENAI_API_KEY', 'openaiApiKey' as const],
+      ['ARK_API_KEY', 'arkApiKey' as const],
+    ])('should preserve %s exactly as configured', (environmentVariable, configKey) => {
+      // Arrange
+      const credential = ' \ttest-api-key\n '
+      process.env[environmentVariable] = credential
 
+      // Act
       const result = getConfig()
 
+      // Assert
       expect(result.success).toBe(true)
       if (result.success) {
-        expect(result.data.arkApiKey).toBe('test-ark-api-key')
+        expect(result.data[configKey]).toBe(credential)
       }
     })
 
@@ -454,21 +315,6 @@ describe('config', () => {
       expect(result.success).toBe(false)
       if (!result.success) {
         expect(result.error.message).toContain('Invalid IMAGE_QUALITY')
-      }
-    })
-
-    it('should validate the loaded config', () => {
-      // Arrange
-      process.env.GEMINI_API_KEY = 'short' // Invalid short API key
-
-      // Act
-      const result = getConfig()
-
-      // Assert
-      expect(result.success).toBe(false)
-      if (!result.success) {
-        expect(result.error).toBeInstanceOf(ConfigError)
-        expect(result.error.message).toContain('at least 10 characters')
       }
     })
   })

@@ -514,7 +514,11 @@ describe('MCP Server', () => {
         openaiApiKey: 'test-openai-api-key-unit-tests',
       })
     )
-    expect(createOpenAITextClient).toHaveBeenCalled()
+    expect(createOpenAITextClient).toHaveBeenCalledWith(
+      expect.objectContaining({
+        openaiApiKey: 'test-openai-api-key-unit-tests',
+      })
+    )
   })
 
   it('should route image generation through the provider requested in the tool call', async () => {
@@ -533,9 +537,15 @@ describe('MCP Server', () => {
 
     const { createGeminiClient } = await import('../../api/geminiClient')
     const { createOpenAIImageClient } = await import('../../api/openaiImageClient')
+    const { createOpenAITextClient } = await import('../../api/openaiTextClient')
 
     expect(createGeminiClient).not.toHaveBeenCalled()
     expect(createOpenAIImageClient).toHaveBeenCalledWith(
+      expect.objectContaining({
+        openaiApiKey: 'test-openai-api-key-unit-tests',
+      })
+    )
+    expect(createOpenAITextClient).toHaveBeenCalledWith(
       expect.objectContaining({
         openaiApiKey: 'test-openai-api-key-unit-tests',
       })
@@ -576,23 +586,69 @@ describe('MCP Server', () => {
     expect(createGeminiClient).toHaveBeenCalledTimes(1)
   })
 
-  it('should reject a requested provider whose API key is not configured', async () => {
-    // Arrange: only GEMINI_API_KEY is set by the test setup
-    const mcpServer = createMCPServer()
+  it.each([
+    {
+      route: 'request provider',
+      requestProvider: 'openai' as const,
+      configuredDefault: undefined,
+      expectedProvider: 'openai',
+      expectedEnvironmentVariable: 'OPENAI_API_KEY',
+    },
+    {
+      route: 'configured default provider',
+      requestProvider: undefined,
+      configuredDefault: 'seedream' as const,
+      expectedProvider: 'seedream',
+      expectedEnvironmentVariable: 'ARK_API_KEY',
+    },
+    {
+      route: 'built-in default provider',
+      requestProvider: undefined,
+      configuredDefault: undefined,
+      expectedProvider: 'gemini',
+      expectedEnvironmentVariable: 'GEMINI_API_KEY',
+    },
+  ])(
+    'should guide the caller to configure credentials for the $route',
+    async ({
+      requestProvider,
+      configuredDefault,
+      expectedProvider,
+      expectedEnvironmentVariable,
+    }) => {
+      // Arrange
+      delete process.env.GEMINI_API_KEY
+      delete process.env.OPENAI_API_KEY
+      delete process.env.ARK_API_KEY
+      if (configuredDefault) {
+        process.env.IMAGE_PROVIDER = configuredDefault
+      } else {
+        delete process.env.IMAGE_PROVIDER
+      }
+      const mcpServer = createMCPServer()
 
-    // Act
-    const result = await mcpServer.callTool('generate_image', {
-      prompt: 'test prompt',
-      provider: 'openai',
-    })
+      // Act
+      const result = await mcpServer.callTool('generate_image', {
+        prompt: 'test prompt',
+        ...(requestProvider && { provider: requestProvider }),
+      })
 
-    // Assert
-    expect(result.isError).toBe(true)
-    expect(result.content[0].text).toContain('OPENAI_API_KEY')
+      // Assert
+      expect(result.isError).toBe(true)
+      const responseData = JSON.parse(result.content[0].text)
+      expect(responseData.error.code).toBe('CONFIG_ERROR')
+      expect(responseData.error.message).toContain(`"${expectedProvider}"`)
+      expect(responseData.error.suggestion).toContain(expectedEnvironmentVariable)
+      expect(responseData.error.suggestion).toContain(
+        `retry generate_image with provider "${expectedProvider}"`
+      )
 
-    const { createOpenAIImageClient } = await import('../../api/openaiImageClient')
-    expect(createOpenAIImageClient).not.toHaveBeenCalled()
-  })
+      if (expectedProvider === 'openai') {
+        const { createOpenAIImageClient } = await import('../../api/openaiImageClient')
+        expect(createOpenAIImageClient).not.toHaveBeenCalled()
+      }
+    }
+  )
 
   it('should pass JPEG preference from fileName to the selected provider', async () => {
     process.env.IMAGE_PROVIDER = 'openai'
