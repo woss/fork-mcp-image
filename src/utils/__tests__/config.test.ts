@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { getConfig, validateConfig } from '../config'
+import { getConfig, validateConfig, validateProviderCredentials } from '../config'
 import { ConfigError } from '../errors'
 
 describe('config', () => {
@@ -228,6 +228,97 @@ describe('config', () => {
 
       // Assert
       expect(result.success).toBe(true)
+    })
+
+    it('should accept a configured non-default provider when the default provider key is missing', () => {
+      // Arrange: requests may select openai even though IMAGE_PROVIDER is gemini
+      const config = {
+        imageProvider: 'gemini' as const,
+        geminiApiKey: '',
+        openaiApiKey: 'test-openai-api-key-12345',
+        arkApiKey: '',
+        imageOutputDir: './output',
+        skipPromptEnhancement: false,
+        imageQuality: 'fast' as const,
+      }
+
+      // Act
+      const result = validateConfig(config)
+
+      // Assert
+      expect(result.success).toBe(true)
+    })
+
+    it('should report the default provider error when no provider key is configured', () => {
+      // Arrange
+      const config = {
+        imageProvider: 'seedream' as const,
+        geminiApiKey: '',
+        openaiApiKey: '',
+        arkApiKey: '',
+        imageOutputDir: './output',
+        skipPromptEnhancement: false,
+        imageQuality: 'fast' as const,
+      }
+
+      // Act
+      const result = validateConfig(config)
+
+      // Assert
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.error).toBeInstanceOf(ConfigError)
+        expect(result.error.message).toContain('ARK_API_KEY')
+      }
+    })
+  })
+
+  describe('validateProviderCredentials', () => {
+    const configWithOnlyOpenAIKey = {
+      imageProvider: 'gemini' as const,
+      geminiApiKey: '',
+      openaiApiKey: 'test-openai-api-key-12345',
+      arkApiKey: '',
+      imageOutputDir: './output',
+      skipPromptEnhancement: false,
+      imageQuality: 'fast' as const,
+    }
+
+    it('should accept the provider whose key is configured', () => {
+      // Act
+      const result = validateProviderCredentials(configWithOnlyOpenAIKey, 'openai')
+
+      // Assert
+      expect(result.success).toBe(true)
+    })
+
+    it.each([
+      ['gemini' as const, 'GEMINI_API_KEY'],
+      ['seedream' as const, 'ARK_API_KEY'],
+    ])('should reject %s when its key is missing', (provider, expectedKeyName) => {
+      // Act
+      const result = validateProviderCredentials(configWithOnlyOpenAIKey, provider)
+
+      // Assert
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.error).toBeInstanceOf(ConfigError)
+        expect(result.error.message).toContain(expectedKeyName)
+      }
+    })
+
+    it('should reject a key that is shorter than the provider minimum', () => {
+      // Arrange
+      const config = { ...configWithOnlyOpenAIKey, openaiApiKey: 'short' }
+
+      // Act
+      const result = validateProviderCredentials(config, 'openai')
+
+      // Assert
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.error.message).toContain('OPENAI_API_KEY')
+      }
     })
   })
 

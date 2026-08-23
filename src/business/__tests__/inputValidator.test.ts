@@ -397,4 +397,45 @@ describe('inputValidator', () => {
       }
     })
   })
+
+  describe('validateGenerateImageParams with provider', () => {
+    it('should accept all valid provider values', () => {
+      // Arrange
+      const validProviders = ['gemini', 'openai', 'seedream'] as const
+
+      // Act & Assert
+      for (const provider of validProviders) {
+        const result = validateGenerateImageParams({
+          prompt: 'test',
+          provider,
+        })
+        expect(result.success).toBe(true)
+      }
+    })
+
+    it('should accept undefined provider (optional)', () => {
+      // Arrange & Act
+      const result = validateGenerateImageParams({ prompt: 'test' })
+
+      // Assert
+      expect(result.success).toBe(true)
+    })
+
+    it('should reject invalid provider value', () => {
+      // Arrange
+      const result = validateGenerateImageParams({
+        prompt: 'test',
+        provider: 'midjourney' as any,
+      })
+
+      // Assert
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.error.message).toContain('Invalid provider')
+        expect(result.error.message).toContain('gemini')
+        expect(result.error.message).toContain('openai')
+        expect(result.error.message).toContain('seedream')
+      }
+    })
+  })
 })

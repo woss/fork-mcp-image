@@ -101,6 +101,8 @@ export interface GenerateImageParams {
   purpose?: string
   /** Quality preset for image generation (default: "fast"). Controls model selection and thinking configuration */
   quality?: ImageQuality
+  /** Image provider to use for this request (default: the server's IMAGE_PROVIDER setting) */
+  provider?: ImageProvider
 }
 
 /**

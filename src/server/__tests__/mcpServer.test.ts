@@ -517,6 +517,83 @@ describe('MCP Server', () => {
     expect(createOpenAITextClient).toHaveBeenCalled()
   })
 
+  it('should route image generation through the provider requested in the tool call', async () => {
+    // Arrange: server default stays gemini, the request asks for openai
+    process.env.OPENAI_API_KEY = 'test-openai-api-key-unit-tests'
+    const mcpServer = createMCPServer()
+
+    // Act
+    const result = await mcpServer.callTool('generate_image', {
+      prompt: 'test prompt',
+      provider: 'openai',
+    })
+
+    // Assert
+    expect(result.isError).toBe(false)
+
+    const { createGeminiClient } = await import('../../api/geminiClient')
+    const { createOpenAIImageClient } = await import('../../api/openaiImageClient')
+
+    expect(createGeminiClient).not.toHaveBeenCalled()
+    expect(createOpenAIImageClient).toHaveBeenCalledWith(
+      expect.objectContaining({
+        openaiApiKey: 'test-openai-api-key-unit-tests',
+      })
+    )
+  })
+
+  it('should build fresh clients when a later call requests another provider', async () => {
+    // Arrange
+    process.env.OPENAI_API_KEY = 'test-openai-api-key-unit-tests'
+    process.env.SKIP_PROMPT_ENHANCEMENT = 'true'
+    const mcpServer = createMCPServer()
+
+    // Act
+    const geminiResult = await mcpServer.callTool('generate_image', {
+      prompt: 'test prompt',
+      provider: 'gemini',
+    })
+    const openaiResult = await mcpServer.callTool('generate_image', {
+      prompt: 'test prompt',
+      provider: 'openai',
+    })
+    const cachedGeminiResult = await mcpServer.callTool('generate_image', {
+      prompt: 'test prompt',
+      provider: 'gemini',
+    })
+
+    // Assert
+    expect(geminiResult.isError).toBe(false)
+    expect(openaiResult.isError).toBe(false)
+    expect(cachedGeminiResult.isError).toBe(false)
+
+    const { createGeminiClient } = await import('../../api/geminiClient')
+    const { createOpenAIImageClient } = await import('../../api/openaiImageClient')
+
+    // The second call must build the OpenAI client instead of reusing the Gemini one,
+    // while the third call reuses the cached Gemini client.
+    expect(createOpenAIImageClient).toHaveBeenCalledTimes(1)
+    expect(createGeminiClient).toHaveBeenCalledTimes(1)
+  })
+
+  it('should reject a requested provider whose API key is not configured', async () => {
+    // Arrange: only GEMINI_API_KEY is set by the test setup
+    const mcpServer = createMCPServer()
+
+    // Act
+    const result = await mcpServer.callTool('generate_image', {
+      prompt: 'test prompt',
+      provider: 'openai',
+    })
+
+    // Assert
+    expect(result.isError).toBe(true)
+    expect(result.content[0].text).toContain('OPENAI_API_KEY')
+
+    const { createOpenAIImageClient } = await import('../../api/openaiImageClient')
+    expect(createOpenAIImageClient).not.toHaveBeenCalled()
+  })
+
   it('should pass JPEG preference from fileName to the selected provider', async () => {
     process.env.IMAGE_PROVIDER = 'openai'
     delete process.env.GEMINI_API_KEY
@@ -692,6 +769,40 @@ describe('MCPServer tool schema - quality', () => {
     // Assert
     expect(generateImageTool?.inputSchema.required).toContain('prompt')
     expect(generateImageTool?.inputSchema.required).not.toContain('quality')
+  })
+})
+
+// Test suite for provider parameter in generate_image tool schema
+describe('MCPServer tool schema - provider', () => {
+  it('should include provider parameter in generate_image schema', () => {
+    // Arrange
+    const mcpServer = createMCPServer()
+
+    // Act
+    const toolsList = mcpServer.getToolsList()
+    const generateImageTool = toolsList.tools.find((t) => t.name === 'generate_image')
+
+    // Assert
+    expect(generateImageTool?.inputSchema.properties).toHaveProperty('provider')
+    expect(generateImageTool?.inputSchema.properties?.provider.type).toBe('string')
+    expect(generateImageTool?.inputSchema.properties?.provider.enum).toEqual([
+      'gemini',
+      'openai',
+      'seedream',
+    ])
+  })
+
+  it('should mark provider as optional in schema', () => {
+    // Arrange
+    const mcpServer = createMCPServer()
+
+    // Act
+    const toolsList = mcpServer.getToolsList()
+    const generateImageTool = toolsList.tools.find((t) => t.name === 'generate_image')
+
+    // Assert
+    expect(generateImageTool?.inputSchema.required).toContain('prompt')
+    expect(generateImageTool?.inputSchema.required).not.toContain('provider')
   })
 })
 

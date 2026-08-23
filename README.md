@@ -60,7 +60,7 @@ Set `SKIP_PROMPT_ENHANCEMENT=true` to send your prompt through unchanged.
 ## Features
 
 - **Prompt enhancement**: Adds lighting, composition, camera, and palette details using the selected provider's text model.
-- **Image providers**: Set `IMAGE_PROVIDER=openai` for OpenAI GPT Image or `IMAGE_PROVIDER=seedream` for BytePlus Seedream through ModelArk.
+- **Image providers**: Set `IMAGE_PROVIDER=openai` for OpenAI GPT Image or `IMAGE_PROVIDER=seedream` for BytePlus Seedream through ModelArk. Pass `provider` on a single request to switch providers without changing the server configuration.
 - **Quality presets**: Select `fast`, `balanced`, or `quality`. Each provider maps these values to a supported model route. [See Quality Presets](#quality-presets).
 - **Image editing**: Edit an existing image with natural-language instructions while retaining its style and visual details.
 - **Resolution controls**: Request up to 4K, depending on the provider and quality route.
@@ -251,10 +251,14 @@ Set `SKIP_PROMPT_ENHANCEMENT=true` to send prompts directly to the image generat
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `IMAGE_PROVIDER` | `gemini` | `gemini`, `openai`, or `seedream` |
-| `GEMINI_API_KEY` | - | Required when `IMAGE_PROVIDER=gemini` |
-| `OPENAI_API_KEY` | - | Required when `IMAGE_PROVIDER=openai` |
-| `ARK_API_KEY` | - | Required when `IMAGE_PROVIDER=seedream`; use a ModelArk AP region key |
+| `IMAGE_PROVIDER` | `gemini` | `gemini`, `openai`, or `seedream`. Used when a request does not set `provider` |
+| `GEMINI_API_KEY` | - | Required to use the `gemini` provider |
+| `OPENAI_API_KEY` | - | Required to use the `openai` provider |
+| `ARK_API_KEY` | - | Required to use the `seedream` provider; use a ModelArk AP region key |
+
+Configure a key for every provider you want to reach. The server starts as long as at least one
+provider is configured, and a request that selects a provider without a key fails with a
+configuration error naming the missing variable.
 
 ### Using the BytePlus Seedream provider
 
@@ -345,6 +349,7 @@ The server uses a separate model for each of its two stages:
 |-----------|------|----------|-------------|
 | `prompt` | string | ✅ | Text description or editing instruction |
 | `quality` | string | - | Quality preset: `fast` (default), `balanced`, `quality`. Overrides `IMAGE_QUALITY` env var for this request |
+| `provider` | string | - | Image provider: `gemini`, `openai`, `seedream`. Overrides `IMAGE_PROVIDER` env var for this request; the provider's API key must be configured |
 | `inputImagePath` | string | - | Absolute path to input image for image-to-image editing |
 | `fileName` | string | - | `.png`, `.jpg`, or `.jpeg` selects that output format for OpenAI/Seedream. Other or absent suffixes use the provider default, and the saved name is corrected to the actual image extension |
 | `aspectRatio` | string | - | `1:1` (default), `2:3`, `3:2`, `3:4`, `4:3`, `4:5`, `5:4`, `9:16`, `16:9`, `21:9`, `1:4`, `1:8`, `4:1`, `8:1` |
