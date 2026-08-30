@@ -10,15 +10,26 @@ Tell it what image to create or what to change in an existing image, and what it
 
 ## What It Does
 
-Ask for the image you need and include its intended use:
+Before generating an image, mcp-image rewrites short requests into more specific prompts. It keeps what you asked for and fills in details such as composition, lighting, and camera angle. The more detail you provide, the less it changes.
+
+**You ask:**
 
 > "A photo of a roast chicken dinner for a recipe site. It should look like it was actually cooked, and it should be partway through being carved so you can tell how juicy it is."
 
-`Actually cooked` shows up as uneven browning and juices on the board; `for a recipe site` keeps the framing tight around the carved meat.
+**mcp-image sends to the image model:**
+
+> "... a beautifully roasted whole chicken, **golden-brown and glistening**, resting on a rustic wooden cutting board. One leg is partially carved, revealing **tender, succulent white meat and rich, glistening juices pooling** around the carving knife ... **shallow depth of field** focused on the carved chicken."
 
 ![Roast chicken, generated with prompt enhancement](assets/roast-chicken-optimized.jpg)
 
 *Generated with Gemini using the default `fast` quality preset.*
+
+What carried through:
+
+- `for a recipe site`: one clear subject, with everything else kept subordinate
+- `actually cooked`: uneven browning and juices across the board
+- `partway through being carved`: the cut face and slices beside it
+- `how juicy it is`: close framing and shallow depth of field around the cut
 
 <details>
 <summary>Compare the same request with prompt enhancement turned off</summary>
