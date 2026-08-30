@@ -6,7 +6,7 @@
 [![npm downloads](https://img.shields.io/npm/dm/mcp-image.svg)](https://www.npmjs.com/package/mcp-image)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Tell it what image to create—or what to change in an existing image—and what it is for. The result is saved to disk and returned to your assistant.
+Tell it what image to create or what to change in an existing image, and what it is for. The result is saved to disk and returned to your assistant.
 
 ## What It Does
 
