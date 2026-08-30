@@ -192,8 +192,8 @@ claude mcp add mcp-image --scope user --env GEMINI_API_KEY=your-api-key --env IM
 For OpenAI GPT Image from a local fork:
 
 ```bash
-npm install
-npm run build
+pnpm install
+pnpm run build
 claude mcp add mcp-image --scope user \
   --env IMAGE_PROVIDER=openai \
   --env OPENAI_API_KEY=your-openai-api-key \

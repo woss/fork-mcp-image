@@ -2,6 +2,7 @@
   "name": "mcp-image",
   "mcpName": "io.github.shinpr/mcp-image",
   "version": "0.13.1",
+  "packageManager": "pnpm@10.34.1",
   "description": "MCP server for AI image generation",
   "type": "module",
   "main": "dist/index.js",
@@ -46,7 +47,7 @@
   "scripts": {
     "prepare": "husky",
     "build": "tsc",
-    "link": "npm run build && npm link",
+    "link": "pnpm run build && pnpm link",
     "test": "vitest run",
     "test:watch": "vitest",
     "format": "biome format --write src",
@@ -57,7 +58,7 @@
     "check:fix": "biome check --write src",
     "check:deps": "dpdm --no-tree --no-warning --circular --exit-code circular:1 --exclude \"(node_modules|__tests__|\\.test\\.ts$|\\.spec\\.ts$)\" --tsconfig ./tsconfig.json \"src/**/*.ts\"",
     "check:unused": "knip",
-    "check:all": "npm run check && npm run check:deps && npm run check:unused && npm run build && npm run test"
+    "check:all": "pnpm run check && pnpm run check:deps && pnpm run check:unused && pnpm run build && pnpm run test"
   },
   "dependencies": {
     "@google/genai": "^2.19.0",
@@ -76,6 +77,12 @@
   },
   "engines": {
     "node": ">=22"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@google/genai",
+      "protobufjs"
+    ]
   },
   "lint-staged": {
     "src/**/*.{ts,tsx}": "biome check --write --no-errors-on-unmatched"
