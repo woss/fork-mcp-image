@@ -1,6 +1,6 @@
 # MCP Image Generator 🍌
 
-> Generate and edit images from Cursor, Claude Code, Codex, or any MCP client. mcp-image adds visual direction to your request before sending it to Gemini, OpenAI, or BytePlus Seedream.
+> Generate and edit images from Codex, Cursor, Claude Code, or any MCP client. mcp-image adds visual direction to your request before sending it to Gemini, OpenAI, or BytePlus Seedream.
 
 [![npm version](https://badge.fury.io/js/mcp-image.svg)](https://www.npmjs.com/package/mcp-image)
 [![npm downloads](https://img.shields.io/npm/dm/mcp-image.svg)](https://www.npmjs.com/package/mcp-image)
@@ -222,7 +222,7 @@ Install it with:
 npx mcp-image skills install --path <skills-directory>
 ```
 
-For example, use `~/.cursor/skills`, `~/.codex/skills`, or `~/.claude/skills` as the destination.
+For example, use `~/.codex/skills`, `~/.cursor/skills`, or `~/.claude/skills` as the destination.
 
 ## License
 
