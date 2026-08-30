@@ -204,7 +204,7 @@ claude mcp add mcp-image --scope user \
 **Security:** Never commit API keys to version control. Use environment-specific configuration.
 
 **Path requirements:**
-- `IMAGE_OUTPUT_DIR` accepts an absolute path or a path relative to the MCP server's working directory
+- `IMAGE_OUTPUT_DIR` must be an absolute path (e.g., `/Users/username/images`, not `./images`)
 - Defaults to `./output` in the current working directory if not specified
 - Directory will be created automatically if it doesn't exist
 
