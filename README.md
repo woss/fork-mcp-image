@@ -108,9 +108,6 @@ See [Using the BytePlus Seedream provider](#using-the-byteplus-seedream-provider
 
 ### 2. MCP Configuration
 
-The examples below use Gemini. For OpenAI or Seedream, keep the same `npx -y mcp-image`
-command and replace `GEMINI_API_KEY` with the provider settings shown above.
-
 #### For Codex
 
 Add to `~/.codex/config.toml`:
