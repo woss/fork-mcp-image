@@ -24,8 +24,6 @@ logs
 *.log
 
 # Runtime data
-.nyc_output
-coverage
 test-output.json
 
 # IDE and editor specific files

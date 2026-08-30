@@ -1,79 +1,25 @@
-/**
- * Error Handler utility for unified error processing
- * Provides centralized error handling and Result type wrapping
- */
-
+import { buildErrorResponse } from '../business/responseBuilder.js'
 import type { McpToolResponse } from '../types/mcp.js'
 import type { Result } from '../types/result.js'
 import { Err, Ok } from '../types/result.js'
-import {
-  ConfigError,
-  FileOperationError,
-  GeminiAPIError,
-  InputValidationError,
-  NetworkError,
-} from '../utils/errors.js'
-import { Logger, sanitizeText } from '../utils/logger.js'
+import { Logger } from '../utils/logger.js'
 
-const SAFE_CONTEXT_KEYS = ['provider', 'stage', 'statusCode'] as const
+const INTERNAL_ERROR_FALLBACK = {
+  code: 'INTERNAL_ERROR',
+  suggestion: 'Contact system administrator',
+} as const
 
-function buildPublicDetails(
-  context: Record<string, unknown> | undefined
-): Record<string, unknown> | undefined {
-  if (!context) return undefined
-
-  const details: Record<string, unknown> = {}
-
-  for (const key of SAFE_CONTEXT_KEYS) {
-    if (context[key] !== undefined) {
-      details[key] = context[key]
-    }
-  }
-
-  if (typeof context['upstreamMessage'] === 'string') {
-    details['upstreamMessage'] = sanitizeText(context['upstreamMessage'])
-  }
-
-  return Object.keys(details).length > 0 ? details : undefined
-}
-
-// Create logger instance for error handling
 const logger = new Logger()
 
-/**
- * Handle an error and convert it to a structured MCP tool response
- * @param error Error to handle
- * @returns MCP tool response with structured error content
- */
 function handleError(error: Error): McpToolResponse {
-  // Log the error with context
   logger.error('error-handler', 'Error occurred', error, {
     errorType: error.constructor.name,
     stack: error.stack,
   })
 
-  // Convert error to structured format
-  const structuredError = {
-    error: convertErrorToStructured(error),
-  }
-
-  return {
-    content: [
-      {
-        type: 'text',
-        text: JSON.stringify(structuredError),
-      },
-    ],
-    isError: true,
-  }
+  return buildErrorResponse(error, INTERNAL_ERROR_FALLBACK)
 }
 
-/**
- * Wrap an operation with Result type for safe error handling
- * @param operation Operation to execute
- * @param context Optional context for logging
- * @returns Promise resolving to Result type
- */
 async function wrapWithResultType<T>(
   operation: () => Promise<T>,
   context?: string
@@ -92,53 +38,6 @@ async function wrapWithResultType<T>(
   }
 }
 
-/**
- * Convert various error types to structured error format
- * @param error Error to convert
- * @returns Structured error object
- */
-function convertErrorToStructured(error: Error): {
-  code: string
-  message: string
-  suggestion: string
-  timestamp: string
-  details?: Record<string, unknown>
-} {
-  const baseError = {
-    timestamp: new Date().toISOString(),
-  }
-
-  if (
-    error instanceof InputValidationError ||
-    error instanceof FileOperationError ||
-    error instanceof GeminiAPIError ||
-    error instanceof NetworkError ||
-    error instanceof ConfigError
-  ) {
-    const details = error instanceof GeminiAPIError ? buildPublicDetails(error.context) : undefined
-
-    return {
-      ...baseError,
-      code: error.code,
-      message: sanitizeText(error.message),
-      suggestion: error.suggestion,
-      ...(details && { details }),
-    }
-  }
-
-  // Handle unknown errors
-  return {
-    ...baseError,
-    code: 'INTERNAL_ERROR',
-    message: error.message || 'An unknown error occurred',
-    suggestion: 'Contact system administrator',
-  }
-}
-
-/**
- * Error Handler utilities for unified error processing and Result type wrapping
- * Maintains backward compatibility with static class API
- */
 export const ErrorHandler = {
   handleError,
   wrapWithResultType,

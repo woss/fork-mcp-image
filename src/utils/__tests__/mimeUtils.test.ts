@@ -1,9 +1,3 @@
-/**
- * Tests for mimeUtils utility
- * Covers MIME-to-extension mapping, extension-to-MIME mapping,
- * extension detection, and extension ensurance for filenames
- */
-
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   getExtensionFromMimeType,
@@ -23,78 +17,37 @@ describe('mimeUtils', () => {
   })
 
   describe('SUPPORTED_MIME_TYPES', () => {
-    it('should contain all 5 supported MIME types', () => {
-      // Assert
-      expect(SUPPORTED_MIME_TYPES).toContain('image/jpeg')
-      expect(SUPPORTED_MIME_TYPES).toContain('image/png')
-      expect(SUPPORTED_MIME_TYPES).toContain('image/webp')
-      expect(SUPPORTED_MIME_TYPES).toContain('image/gif')
-      expect(SUPPORTED_MIME_TYPES).toContain('image/bmp')
-      expect(SUPPORTED_MIME_TYPES).toHaveLength(5)
+    it('contains exactly the supported MIME types', () => {
+      expect(new Set(SUPPORTED_MIME_TYPES)).toEqual(
+        new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/bmp'])
+      )
     })
   })
 
   describe('SUPPORTED_EXTENSIONS', () => {
-    it('should contain all supported extensions', () => {
-      // Assert
-      expect(SUPPORTED_EXTENSIONS).toContain('.jpg')
-      expect(SUPPORTED_EXTENSIONS).toContain('.jpeg')
-      expect(SUPPORTED_EXTENSIONS).toContain('.png')
-      expect(SUPPORTED_EXTENSIONS).toContain('.webp')
-      expect(SUPPORTED_EXTENSIONS).toContain('.gif')
-      expect(SUPPORTED_EXTENSIONS).toContain('.bmp')
+    it('contains exactly the supported extensions', () => {
+      expect(new Set(SUPPORTED_EXTENSIONS)).toEqual(
+        new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp'])
+      )
     })
   })
 
   describe('getExtensionFromMimeType', () => {
-    it('should map image/jpeg to .jpg', () => {
-      // Act
-      const result = getExtensionFromMimeType('image/jpeg')
-
-      // Assert
-      expect(result).toBe('.jpg')
-    })
-
-    it('should map image/png to .png', () => {
-      // Act
-      const result = getExtensionFromMimeType('image/png')
-
-      // Assert
-      expect(result).toBe('.png')
-    })
-
-    it('should map image/webp to .webp', () => {
-      // Act
-      const result = getExtensionFromMimeType('image/webp')
-
-      // Assert
-      expect(result).toBe('.webp')
-    })
-
-    it('should map image/gif to .gif', () => {
-      // Act
-      const result = getExtensionFromMimeType('image/gif')
-
-      // Assert
-      expect(result).toBe('.gif')
-    })
-
-    it('should map image/bmp to .bmp', () => {
-      // Act
-      const result = getExtensionFromMimeType('image/bmp')
-
-      // Assert
-      expect(result).toBe('.bmp')
+    it.each([
+      ['image/jpeg', '.jpg'],
+      ['image/png', '.png'],
+      ['image/webp', '.webp'],
+      ['image/gif', '.gif'],
+      ['image/bmp', '.bmp'],
+    ])('maps %s to %s', (mimeType, extension) => {
+      expect(getExtensionFromMimeType(mimeType)).toBe(extension)
     })
 
     it('should return .png with warning log for unknown MIME type', () => {
-      // Arrange
       const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
-      // Act
       const result = getExtensionFromMimeType('image/tiff')
 
-      // Assert
       expect(result).toBe('.png')
       expect(consoleErrorSpy).toHaveBeenCalled()
       const logOutput = consoleErrorSpy.mock.calls[0]?.[0] as string
@@ -103,98 +56,52 @@ describe('mimeUtils', () => {
     })
 
     it('should return .png with warning log for empty string', () => {
-      // Arrange
       const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
-      // Act
       const result = getExtensionFromMimeType('')
 
-      // Assert
       expect(result).toBe('.png')
       expect(consoleErrorSpy).toHaveBeenCalled()
     })
   })
 
   describe('getMimeTypeFromExtension', () => {
-    it('should map .jpg to image/jpeg', () => {
-      // Act
-      const result = getMimeTypeFromExtension('.jpg')
-
-      // Assert
-      expect(result).toBe('image/jpeg')
-    })
-
-    it('should map .jpeg to image/jpeg', () => {
-      // Act
-      const result = getMimeTypeFromExtension('.jpeg')
-
-      // Assert
-      expect(result).toBe('image/jpeg')
-    })
-
-    it('should map .png to image/png', () => {
-      // Act
-      const result = getMimeTypeFromExtension('.png')
-
-      // Assert
-      expect(result).toBe('image/png')
-    })
-
-    it('should map .webp to image/webp', () => {
-      // Act
-      const result = getMimeTypeFromExtension('.webp')
-
-      // Assert
-      expect(result).toBe('image/webp')
-    })
-
-    it('should map .gif to image/gif', () => {
-      // Act
-      const result = getMimeTypeFromExtension('.gif')
-
-      // Assert
-      expect(result).toBe('image/gif')
-    })
-
-    it('should map .bmp to image/bmp', () => {
-      // Act
-      const result = getMimeTypeFromExtension('.bmp')
-
-      // Assert
-      expect(result).toBe('image/bmp')
+    it.each([
+      ['.jpg', 'image/jpeg'],
+      ['.jpeg', 'image/jpeg'],
+      ['.png', 'image/png'],
+      ['.webp', 'image/webp'],
+      ['.gif', 'image/gif'],
+      ['.bmp', 'image/bmp'],
+    ])('maps %s to %s', (extension, mimeType) => {
+      expect(getMimeTypeFromExtension(extension)).toBe(mimeType)
     })
 
     it('should return image/png for unknown extension', () => {
-      // Act
       const result = getMimeTypeFromExtension('.tiff')
 
-      // Assert
       expect(result).toBe('image/png')
     })
   })
 
   describe('reconcileFileNameExtension', () => {
-    it('should add extension when filename has none', () => {
-      // Act
-      const result = reconcileFileNameExtension('photo', 'image/jpeg')
-
-      // Assert
-      expect(result).toBe('photo.jpg')
+    it.each([
+      ['photo', 'image/jpeg', 'photo.jpg'],
+      ['screenshot', 'image/png', 'screenshot.png'],
+      ['artwork', 'image/webp', 'artwork.webp'],
+    ])('reconciles %s and %s to %s', (fileName, mimeType, expected) => {
+      expect(reconcileFileNameExtension(fileName, mimeType)).toBe(expected)
     })
 
     it('should preserve existing correct extension', () => {
-      // Act
       const result = reconcileFileNameExtension('photo.jpg', 'image/jpeg')
 
-      // Assert
       expect(result).toBe('photo.jpg')
     })
 
     it('should replace a recognized extension when it does not match the actual MIME type', () => {
-      // Act
       const result = reconcileFileNameExtension('photo.png', 'image/jpeg')
 
-      // Assert
       expect(result).toBe('photo.jpg')
     })
 
@@ -205,22 +112,6 @@ describe('mimeUtils', () => {
     it('should preserve or replace uppercase extensions based on the actual MIME type', () => {
       expect(reconcileFileNameExtension('photo.JPG', 'image/jpeg')).toBe('photo.JPG')
       expect(reconcileFileNameExtension('photo.PNG', 'image/jpeg')).toBe('photo.jpg')
-    })
-
-    it('should add extension for image/png when filename has no extension', () => {
-      // Act
-      const result = reconcileFileNameExtension('screenshot', 'image/png')
-
-      // Assert
-      expect(result).toBe('screenshot.png')
-    })
-
-    it('should add extension for image/webp when filename has no extension', () => {
-      // Act
-      const result = reconcileFileNameExtension('artwork', 'image/webp')
-
-      // Assert
-      expect(result).toBe('artwork.webp')
     })
   })
 
@@ -258,10 +149,8 @@ describe('mimeUtils', () => {
   })
 
   describe('normalizeMimeType', () => {
-    it('should return supported MIME type as-is', () => {
-      expect(normalizeMimeType('image/jpeg')).toBe('image/jpeg')
-      expect(normalizeMimeType('image/png')).toBe('image/png')
-      expect(normalizeMimeType('image/webp')).toBe('image/webp')
+    it.each(['image/jpeg', 'image/png', 'image/webp'])('preserves supported %s', (mimeType) => {
+      expect(normalizeMimeType(mimeType)).toBe(mimeType)
     })
 
     it('should return image/png for unknown MIME type', () => {

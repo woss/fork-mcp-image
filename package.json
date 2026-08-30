@@ -1,12 +1,12 @@
 {
   "name": "mcp-image",
   "mcpName": "io.github.shinpr/mcp-image",
-  "version": "0.13.0",
+  "version": "0.13.1",
   "description": "MCP server for AI image generation",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "mcp-image": "dist/index.js"
+    "mcp-image": "dist/cli.js"
   },
   "keywords": [
     "mcp",
@@ -48,10 +48,6 @@
     "build": "tsc",
     "link": "npm run build && npm link",
     "test": "vitest run",
-    "test:coverage": "vitest run --coverage",
-    "test:coverage:summary": "node scripts/show-coverage.js",
-    "test:coverage:clean": "rm -rf coverage .vitest-cache",
-    "test:coverage:fresh": "npm run test:coverage:clean && npm run test:coverage",
     "test:watch": "vitest",
     "format": "biome format --write src",
     "format:check": "biome format src",
@@ -61,9 +57,7 @@
     "check:fix": "biome check --write src",
     "check:deps": "dpdm --no-tree --no-warning --circular --exit-code circular:1 --exclude \"(node_modules|__tests__|\\.test\\.ts$|\\.spec\\.ts$)\" --tsconfig ./tsconfig.json \"src/**/*.ts\"",
     "check:unused": "knip",
-    "check:all": "npm run check && npm run lint && npm run format:check && npm run check:deps && npm run check:unused && npm run build && npm run test",
-    "cleanup:processes": "bash ./scripts/cleanup-test-processes.sh",
-    "test:safe": "npm test && npm run cleanup:processes"
+    "check:all": "npm run check && npm run check:deps && npm run check:unused && npm run build && npm run test"
   },
   "dependencies": {
     "@google/genai": "^2.15.0",
@@ -73,7 +67,6 @@
   "devDependencies": {
     "@biomejs/biome": "^2.5.6",
     "@types/node": "^26.1.2",
-    "@vitest/coverage-v8": "^4.1.10",
     "@vitest/ui": "^4.1.10",
     "dpdm": "^4.3.0",
     "husky": "^9.1.7",
@@ -86,9 +79,6 @@
     "node": ">=22"
   },
   "lint-staged": {
-    "src/**/*.{ts,tsx}": [
-      "biome check --write --no-errors-on-unmatched",
-      "biome format --write --no-errors-on-unmatched"
-    ]
+    "src/**/*.{ts,tsx}": "biome check --write --no-errors-on-unmatched"
   }
 }

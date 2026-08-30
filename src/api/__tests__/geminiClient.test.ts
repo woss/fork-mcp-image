@@ -3,7 +3,6 @@ import type { Config } from '../../utils/config'
 import { GeminiAPIError, NetworkError } from '../../utils/errors'
 import { createGeminiClient } from '../geminiClient'
 
-// Mock the Gemini client instance structure
 const mockGeminiClientInstance = {
   models: {
     generateContent: vi.fn(),
@@ -43,24 +42,19 @@ describe('geminiClient', () => {
 
   describe('createGeminiClient', () => {
     it('should create client with correct model configuration', () => {
-      // Act
       const result = createGeminiClient(testConfig)
 
-      // Assert
       expect(result.success).toBe(true)
       expect(mockGoogleGenAI).toHaveBeenCalledWith({ apiKey: testConfig.geminiApiKey })
     })
 
     it('should return error when API key is invalid', () => {
-      // Arrange
       mockGoogleGenAI.mockImplementationOnce(() => {
         throw new Error('Invalid API key')
       })
 
-      // Act
       const result = createGeminiClient(testConfig)
 
-      // Assert
       expect(result.success).toBe(false)
       if (!result.success) {
         expect(result.error).toBeInstanceOf(GeminiAPIError)
@@ -71,7 +65,6 @@ describe('geminiClient', () => {
 
   describe('GeminiClient.generateImage', () => {
     it('should generate image successfully with text prompt only', async () => {
-      // Arrange
       const mockResponse = {
         response: {
           candidates: [
@@ -99,12 +92,10 @@ describe('geminiClient', () => {
       if (!clientResult.success) return
       const client = clientResult.data
 
-      // Act
       const result = await client.generateImage({
         prompt: 'Generate a beautiful landscape',
       })
 
-      // Assert
       expect(result.success).toBe(true)
       if (result.success) {
         expect(result.data.imageData).toBeInstanceOf(Buffer)
@@ -115,7 +106,6 @@ describe('geminiClient', () => {
     })
 
     it('should generate image successfully with input image and prompt', async () => {
-      // Arrange
       const mockResponse = {
         response: {
           candidates: [
@@ -146,13 +136,11 @@ describe('geminiClient', () => {
       const inputImageBuffer = Buffer.from('fake-input-image-data')
       const inputImageBase64 = inputImageBuffer.toString('base64')
 
-      // Act
       const result = await client.generateImage({
         prompt: 'Enhance this image',
         inputImage: inputImageBase64,
       })
 
-      // Assert
       expect(result.success).toBe(true)
       if (result.success) {
         expect(result.data.imageData).toBeInstanceOf(Buffer)
@@ -163,7 +151,6 @@ describe('geminiClient', () => {
     })
 
     it('should return GeminiAPIError when API returns error', async () => {
-      // Arrange
       const apiError = new Error('API quota exceeded')
       mockGeminiClientInstance.models.generateContent = vi.fn().mockRejectedValue(apiError)
 
@@ -173,12 +160,10 @@ describe('geminiClient', () => {
       if (!clientResult.success) return
       const client = clientResult.data
 
-      // Act
       const result = await client.generateImage({
         prompt: 'Generate image',
       })
 
-      // Assert
       expect(result.success).toBe(false)
       if (!result.success) {
         expect(result.error).toBeInstanceOf(GeminiAPIError)
@@ -188,7 +173,6 @@ describe('geminiClient', () => {
     })
 
     it('should return NetworkError for network-related failures', async () => {
-      // Arrange
       const networkError = new Error('ECONNRESET') as Error & { code: string }
       networkError.code = 'ECONNRESET'
       mockGeminiClientInstance.models.generateContent = vi.fn().mockRejectedValue(networkError)
@@ -199,12 +183,10 @@ describe('geminiClient', () => {
       if (!clientResult.success) return
       const client = clientResult.data
 
-      // Act
       const result = await client.generateImage({
         prompt: 'Generate image',
       })
 
-      // Assert
       expect(result.success).toBe(false)
       if (!result.success) {
         expect(result.error).toBeInstanceOf(NetworkError)
@@ -213,7 +195,6 @@ describe('geminiClient', () => {
     })
 
     it('should return GeminiAPIError when response is malformed', async () => {
-      // Arrange
       const mockMalformedResponse = {
         response: {
           candidates: [], // Empty candidates
@@ -230,12 +211,10 @@ describe('geminiClient', () => {
       if (!clientResult.success) return
       const client = clientResult.data
 
-      // Act
       const result = await client.generateImage({
         prompt: 'Generate image',
       })
 
-      // Assert
       expect(result.success).toBe(false)
       if (!result.success) {
         expect(result.error).toBeInstanceOf(GeminiAPIError)
@@ -244,7 +223,6 @@ describe('geminiClient', () => {
     })
 
     it('should handle prompt feedback blocking with safety reasons', async () => {
-      // Arrange
       const mockBlockedResponse = {
         response: {
           promptFeedback: {
@@ -272,12 +250,10 @@ describe('geminiClient', () => {
       if (!clientResult.success) return
       const client = clientResult.data
 
-      // Act
       const result = await client.generateImage({
         prompt: 'Generate violent content',
       })
 
-      // Assert
       expect(result.success).toBe(false)
       if (!result.success) {
         expect(result.error).toBeInstanceOf(GeminiAPIError)
@@ -292,7 +268,6 @@ describe('geminiClient', () => {
     })
 
     it('should handle finish reason SAFETY with detailed information', async () => {
-      // Arrange
       const mockSafetyStoppedResponse = {
         response: {
           candidates: [
@@ -328,12 +303,10 @@ describe('geminiClient', () => {
       if (!clientResult.success) return
       const client = clientResult.data
 
-      // Act
       const result = await client.generateImage({
         prompt: 'Generate inappropriate image',
       })
 
-      // Assert
       expect(result.success).toBe(false)
       if (!result.success) {
         expect(result.error).toBeInstanceOf(GeminiAPIError)
@@ -344,13 +317,11 @@ describe('geminiClient', () => {
           finishReason: 'IMAGE_SAFETY',
           stage: 'generation_stopped',
         })
-        // Safety ratings should be formatted
         expect(result.error.context?.safetyRatings).toContain('Sexually Explicit (BLOCKED)')
       }
     })
 
     it('should handle finish reason MAX_TOKENS', async () => {
-      // Arrange
       const mockMaxTokensResponse = {
         response: {
           candidates: [
@@ -374,12 +345,10 @@ describe('geminiClient', () => {
       if (!clientResult.success) return
       const client = clientResult.data
 
-      // Act
       const result = await client.generateImage({
         prompt: 'Generate extremely complex scene with many details',
       })
 
-      // Assert
       expect(result.success).toBe(false)
       if (!result.success) {
         expect(result.error).toBeInstanceOf(GeminiAPIError)
@@ -393,7 +362,6 @@ describe('geminiClient', () => {
     })
 
     it('should handle prohibited content blocking', async () => {
-      // Arrange
       const mockProhibitedResponse = {
         response: {
           promptFeedback: {
@@ -414,12 +382,10 @@ describe('geminiClient', () => {
       if (!clientResult.success) return
       const client = clientResult.data
 
-      // Act
       const result = await client.generateImage({
         prompt: 'Generate prohibited content',
       })
 
-      // Assert
       expect(result.success).toBe(false)
       if (!result.success) {
         expect(result.error).toBeInstanceOf(GeminiAPIError)
@@ -431,195 +397,10 @@ describe('geminiClient', () => {
         })
       }
     })
-
-    it('should generate image with feature parameters (without processing)', async () => {
-      // Arrange
-      const mockResponse = {
-        response: {
-          candidates: [
-            {
-              content: {
-                parts: [
-                  {
-                    inlineData: {
-                      data: 'base64-enhanced-image-data',
-                      mimeType: 'image/png',
-                    },
-                  },
-                ],
-              },
-            },
-          ],
-        },
-      }
-
-      mockGeminiClientInstance.models.generateContent = vi.fn().mockResolvedValue(mockResponse)
-
-      const clientResult = createGeminiClient(testConfig)
-      expect(clientResult.success).toBe(true)
-
-      if (!clientResult.success) return
-      const client = clientResult.data
-
-      // Act - feature parameters are passed but not processed by GeminiClient
-      const result = await client.generateImage({
-        prompt: 'Generate character with blending',
-        blendImages: true,
-        maintainCharacterConsistency: true,
-        useWorldKnowledge: false,
-      })
-
-      // Assert
-      expect(result.success).toBe(true)
-      if (result.success) {
-        expect(result.data.imageData).toBeInstanceOf(Buffer)
-        expect(result.data.metadata.model).toBe('gemini-3.1-flash-image')
-        // Features are passed to the API but not stored in metadata
-        expect(result.data.metadata.prompt).toBe('Generate character with blending')
-      }
-    })
-
-    it('should generate image with some features enabled (parameters tracked only)', async () => {
-      // Arrange
-      const mockResponse = {
-        response: {
-          candidates: [
-            {
-              content: {
-                parts: [
-                  {
-                    inlineData: {
-                      data: 'base64-world-knowledge-image',
-                      mimeType: 'image/webp',
-                    },
-                  },
-                ],
-              },
-            },
-          ],
-        },
-      }
-
-      mockGeminiClientInstance.models.generateContent = vi.fn().mockResolvedValue(mockResponse)
-
-      const clientResult = createGeminiClient(testConfig)
-      expect(clientResult.success).toBe(true)
-
-      if (!clientResult.success) return
-      const client = clientResult.data
-
-      // Act
-      const result = await client.generateImage({
-        prompt: 'Generate factually accurate historical scene',
-        useWorldKnowledge: true,
-      })
-
-      // Assert
-      expect(result.success).toBe(true)
-      if (result.success) {
-        // Features are passed to the API but not stored in metadata
-        expect(result.data.metadata.prompt).toBe('Generate factually accurate historical scene')
-        expect(result.data.metadata.model).toBe('gemini-3.1-flash-image')
-      }
-    })
-
-    it('should generate image without new features when not specified', async () => {
-      // Arrange
-      const mockResponse = {
-        response: {
-          candidates: [
-            {
-              content: {
-                parts: [
-                  {
-                    inlineData: {
-                      data: 'base64-standard-image',
-                      mimeType: 'image/png',
-                    },
-                  },
-                ],
-              },
-            },
-          ],
-        },
-      }
-
-      mockGeminiClientInstance.models.generateContent = vi.fn().mockResolvedValue(mockResponse)
-
-      const clientResult = createGeminiClient(testConfig)
-      expect(clientResult.success).toBe(true)
-
-      if (!clientResult.success) return
-      const client = clientResult.data
-
-      // Act
-      const result = await client.generateImage({
-        prompt: 'Generate simple landscape',
-      })
-
-      // Assert
-      expect(result.success).toBe(true)
-      if (result.success) {
-        // Features not specified - standard metadata only
-        expect(result.data.metadata.prompt).toBe('Generate simple landscape')
-        expect(result.data.metadata.model).toBe('gemini-3.1-flash-image')
-      }
-    })
-
-    it('should generate image with features and input image (parameters tracked only)', async () => {
-      // Arrange
-      const mockResponse = {
-        response: {
-          candidates: [
-            {
-              content: {
-                parts: [
-                  {
-                    inlineData: {
-                      data: 'base64-blended-image',
-                      mimeType: 'image/jpeg',
-                    },
-                  },
-                ],
-              },
-            },
-          ],
-        },
-      }
-
-      mockGeminiClientInstance.models.generateContent = vi.fn().mockResolvedValue(mockResponse)
-
-      const clientResult = createGeminiClient(testConfig)
-      expect(clientResult.success).toBe(true)
-
-      if (!clientResult.success) return
-      const client = clientResult.data
-
-      const inputBuffer = Buffer.from('test-image-data')
-      const inputBase64 = inputBuffer.toString('base64')
-
-      // Act
-      const result = await client.generateImage({
-        prompt: 'Blend this character with fantasy elements',
-        inputImage: inputBase64,
-        blendImages: true,
-        maintainCharacterConsistency: true,
-      })
-
-      // Assert
-      expect(result.success).toBe(true)
-      if (result.success) {
-        expect(result.data.metadata.inputImageProvided).toBe(true)
-        // Features are passed to the API but not stored in metadata
-        expect(result.data.metadata.prompt).toBe('Blend this character with fantasy elements')
-        expect(result.data.metadata.model).toBe('gemini-3.1-flash-image')
-      }
-    })
   })
 
   describe('GeminiClient.generateImage with aspectRatio', () => {
     it('should call API with imageConfig when aspectRatio is specified', async () => {
-      // Arrange
       const mockResponse = {
         response: {
           candidates: [
@@ -647,22 +428,24 @@ describe('geminiClient', () => {
       if (!clientResult.success) return
       const client = clientResult.data
 
-      // Act
       const result = await client.generateImage({
         prompt: 'test prompt for aspect ratio',
         aspectRatio: '16:9',
       })
 
-      // Assert
       expect(result.success).toBe(true)
       if (result.success) {
         expect(result.data.imageData).toBeInstanceOf(Buffer)
         expect(result.data.metadata.prompt).toBe('test prompt for aspect ratio')
       }
+      expect(mockGeminiClientInstance.models.generateContent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          config: expect.objectContaining({ imageConfig: { aspectRatio: '16:9' } }),
+        })
+      )
     })
 
     it('should generate image successfully without aspectRatio', async () => {
-      // Arrange
       const mockResponse = {
         response: {
           candidates: [
@@ -690,66 +473,23 @@ describe('geminiClient', () => {
       if (!clientResult.success) return
       const client = clientResult.data
 
-      // Act
       const result = await client.generateImage({
         prompt: 'test prompt without aspect ratio',
       })
 
-      // Assert
       expect(result.success).toBe(true)
       if (result.success) {
         expect(result.data.imageData).toBeInstanceOf(Buffer)
         expect(result.data.metadata.prompt).toBe('test prompt without aspect ratio')
       }
-    })
-
-    it('should generate image with different aspectRatio values', async () => {
-      // Arrange
-      const mockResponse = {
-        response: {
-          candidates: [
-            {
-              content: {
-                parts: [
-                  {
-                    inlineData: {
-                      data: 'base64-image-data-21-9',
-                      mimeType: 'image/png',
-                    },
-                  },
-                ],
-              },
-            },
-          ],
-        },
-      }
-
-      mockGeminiClientInstance.models.generateContent = vi.fn().mockResolvedValue(mockResponse)
-
-      const clientResult = createGeminiClient(testConfig)
-      expect(clientResult.success).toBe(true)
-
-      if (!clientResult.success) return
-      const client = clientResult.data
-
-      // Act
-      const result = await client.generateImage({
-        prompt: 'test prompt with 21:9 aspect ratio',
-        aspectRatio: '21:9',
-      })
-
-      // Assert
-      expect(result.success).toBe(true)
-      if (result.success) {
-        expect(result.data.imageData).toBeInstanceOf(Buffer)
-        expect(result.data.metadata.prompt).toBe('test prompt with 21:9 aspect ratio')
-      }
+      const request = (mockGeminiClientInstance.models.generateContent as ReturnType<typeof vi.fn>)
+        .mock.calls[0][0]
+      expect(request.config.imageConfig).toBeUndefined()
     })
   })
 
   describe('GeminiClient.generateImage with useGoogleSearch', () => {
     it('should generate image successfully with useGoogleSearch enabled', async () => {
-      // Arrange
       const mockResponse = {
         response: {
           candidates: [
@@ -777,20 +517,17 @@ describe('geminiClient', () => {
       if (!clientResult.success) return
       const client = clientResult.data
 
-      // Act
       const result = await client.generateImage({
         prompt: 'Generate current 2025 weather map of Tokyo',
         useGoogleSearch: true,
       })
 
-      // Assert
       expect(result.success).toBe(true)
       if (result.success) {
         expect(result.data.imageData).toBeInstanceOf(Buffer)
         expect(result.data.metadata.prompt).toBe('Generate current 2025 weather map of Tokyo')
       }
 
-      // Verify tools parameter includes both web and image search
       const callArgs = (mockGeminiClientInstance.models.generateContent as ReturnType<typeof vi.fn>)
         .mock.calls[0][0]
       expect(callArgs.config.tools).toEqual([
@@ -799,7 +536,6 @@ describe('geminiClient', () => {
     })
 
     it('should generate image successfully with useGoogleSearch disabled', async () => {
-      // Arrange
       const mockResponse = {
         response: {
           candidates: [
@@ -827,27 +563,23 @@ describe('geminiClient', () => {
       if (!clientResult.success) return
       const client = clientResult.data
 
-      // Act
       const result = await client.generateImage({
         prompt: 'Generate creative fantasy landscape',
         useGoogleSearch: false,
       })
 
-      // Assert
       expect(result.success).toBe(true)
       if (result.success) {
         expect(result.data.imageData).toBeInstanceOf(Buffer)
         expect(result.data.metadata.prompt).toBe('Generate creative fantasy landscape')
       }
 
-      // Verify tools parameter is not included when disabled
       const callArgs = (mockGeminiClientInstance.models.generateContent as ReturnType<typeof vi.fn>)
         .mock.calls[0][0]
       expect(callArgs.config.tools).toBeUndefined()
     })
 
     it('should generate image successfully without useGoogleSearch parameter', async () => {
-      // Arrange
       const mockResponse = {
         response: {
           candidates: [
@@ -875,26 +607,22 @@ describe('geminiClient', () => {
       if (!clientResult.success) return
       const client = clientResult.data
 
-      // Act
       const result = await client.generateImage({
         prompt: 'Generate image without grounding',
       })
 
-      // Assert
       expect(result.success).toBe(true)
       if (result.success) {
         expect(result.data.imageData).toBeInstanceOf(Buffer)
         expect(result.data.metadata.prompt).toBe('Generate image without grounding')
       }
 
-      // Verify tools parameter is not included when omitted
       const callArgs = (mockGeminiClientInstance.models.generateContent as ReturnType<typeof vi.fn>)
         .mock.calls[0][0]
       expect(callArgs.config.tools).toBeUndefined()
     })
 
     it('should generate image with combined parameters', async () => {
-      // Arrange
       const mockResponse = {
         response: {
           candidates: [
@@ -922,7 +650,6 @@ describe('geminiClient', () => {
       if (!clientResult.success) return
       const client = clientResult.data
 
-      // Act
       const result = await client.generateImage({
         prompt: 'Generate 2025 Japan foodtech industry chaos map',
         useGoogleSearch: true,
@@ -930,19 +657,18 @@ describe('geminiClient', () => {
         imageSize: '4K',
       })
 
-      // Assert
       expect(result.success).toBe(true)
       if (result.success) {
         expect(result.data.imageData).toBeInstanceOf(Buffer)
         expect(result.data.metadata.prompt).toBe('Generate 2025 Japan foodtech industry chaos map')
       }
 
-      // Verify tools parameter includes both web and image search with combined params
       const callArgs = (mockGeminiClientInstance.models.generateContent as ReturnType<typeof vi.fn>)
         .mock.calls[0][0]
       expect(callArgs.config.tools).toEqual([
         { googleSearch: { searchTypes: { webSearch: {}, imageSearch: {} } } },
       ])
+      expect(callArgs.config.imageConfig).toEqual({ aspectRatio: '16:9', imageSize: '4K' })
     })
   })
 
@@ -967,7 +693,6 @@ describe('geminiClient', () => {
     }
 
     it('should use gemini-3.1-flash-image for fast preset (default)', async () => {
-      // Arrange
       mockGeminiClientInstance.models.generateContent = vi
         .fn()
         .mockResolvedValue(mockSuccessResponse)
@@ -977,15 +702,12 @@ describe('geminiClient', () => {
       if (!clientResult.success) return
       const client = clientResult.data
 
-      // Act
       const result = await client.generateImage({ prompt: 'test fast preset' })
 
-      // Assert
       expect(result.success).toBe(true)
       if (result.success) {
         expect(result.data.metadata.model).toBe('gemini-3.1-flash-image')
       }
-      // Verify generateContent called with correct model and no thinkingConfig
       expect(mockGeminiClientInstance.models.generateContent).toHaveBeenCalledWith(
         expect.objectContaining({
           model: 'gemini-3.1-flash-image',
@@ -997,7 +719,6 @@ describe('geminiClient', () => {
     })
 
     it('should use gemini-3.1-flash-image with thinkingConfig for balanced preset', async () => {
-      // Arrange
       mockGeminiClientInstance.models.generateContent = vi
         .fn()
         .mockResolvedValue(mockSuccessResponse)
@@ -1008,15 +729,12 @@ describe('geminiClient', () => {
       if (!clientResult.success) return
       const client = clientResult.data
 
-      // Act
       const result = await client.generateImage({ prompt: 'test balanced preset' })
 
-      // Assert
       expect(result.success).toBe(true)
       if (result.success) {
         expect(result.data.metadata.model).toBe('gemini-3.1-flash-image')
       }
-      // Verify generateContent called with thinkingConfig
       expect(mockGeminiClientInstance.models.generateContent).toHaveBeenCalledWith(
         expect.objectContaining({
           model: 'gemini-3.1-flash-image',
@@ -1028,7 +746,6 @@ describe('geminiClient', () => {
     })
 
     it('should use gemini-3-pro-image for quality preset', async () => {
-      // Arrange
       mockGeminiClientInstance.models.generateContent = vi
         .fn()
         .mockResolvedValue(mockSuccessResponse)
@@ -1039,15 +756,12 @@ describe('geminiClient', () => {
       if (!clientResult.success) return
       const client = clientResult.data
 
-      // Act
       const result = await client.generateImage({ prompt: 'test quality preset' })
 
-      // Assert
       expect(result.success).toBe(true)
       if (result.success) {
         expect(result.data.metadata.model).toBe('gemini-3-pro-image')
       }
-      // Verify generateContent called with correct model and no thinkingConfig
       expect(mockGeminiClientInstance.models.generateContent).toHaveBeenCalledWith(
         expect.objectContaining({
           model: 'gemini-3-pro-image',
@@ -1059,29 +773,24 @@ describe('geminiClient', () => {
     })
 
     it('should allow per-request quality override', async () => {
-      // Arrange
       mockGeminiClientInstance.models.generateContent = vi
         .fn()
         .mockResolvedValue(mockSuccessResponse)
 
-      // Create client with default 'fast'
       const clientResult = createGeminiClient(testConfig)
       expect(clientResult.success).toBe(true)
       if (!clientResult.success) return
       const client = clientResult.data
 
-      // Act - override to 'quality' per-request
       const result = await client.generateImage({
         prompt: 'test per-request override',
         quality: 'quality',
       })
 
-      // Assert
       expect(result.success).toBe(true)
       if (result.success) {
         expect(result.data.metadata.model).toBe('gemini-3-pro-image')
       }
-      // Verify generateContent called with quality model
       expect(mockGeminiClientInstance.models.generateContent).toHaveBeenCalledWith(
         expect.objectContaining({
           model: 'gemini-3-pro-image',
@@ -1090,27 +799,22 @@ describe('geminiClient', () => {
     })
 
     it('should fall back to constructor default quality when params.quality is undefined', async () => {
-      // Arrange
       mockGeminiClientInstance.models.generateContent = vi
         .fn()
         .mockResolvedValue(mockSuccessResponse)
 
-      // Create client with 'balanced' default
       const balancedConfig: Config = { ...testConfig, imageQuality: 'balanced' }
       const clientResult = createGeminiClient(balancedConfig)
       expect(clientResult.success).toBe(true)
       if (!clientResult.success) return
       const client = clientResult.data
 
-      // Act - no quality param specified
       const result = await client.generateImage({ prompt: 'test default fallback' })
 
-      // Assert
       expect(result.success).toBe(true)
       if (result.success) {
         expect(result.data.metadata.model).toBe('gemini-3.1-flash-image')
       }
-      // Verify thinkingConfig is present (balanced preset)
       expect(mockGeminiClientInstance.models.generateContent).toHaveBeenCalledWith(
         expect.objectContaining({
           model: 'gemini-3.1-flash-image',

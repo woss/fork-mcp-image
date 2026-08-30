@@ -127,7 +127,7 @@ For OpenAI GPT Image from a local fork:
 ```toml
 [mcp_servers.mcp-image]
 command = "node"
-args = ["/absolute/path/to/mcp-image/dist/index.js"]
+args = ["/absolute/path/to/mcp-image/dist/cli.js"]
 
 [mcp_servers.mcp-image.env]
 IMAGE_PROVIDER = "openai"
@@ -163,7 +163,7 @@ For OpenAI GPT Image from a local fork:
   "mcpServers": {
     "mcp-image": {
       "command": "node",
-      "args": ["/absolute/path/to/mcp-image/dist/index.js"],
+      "args": ["/absolute/path/to/mcp-image/dist/cli.js"],
       "env": {
         "IMAGE_PROVIDER": "openai",
         "OPENAI_API_KEY": "your_openai_api_key_here",
@@ -198,13 +198,13 @@ claude mcp add mcp-image --scope user \
   --env IMAGE_PROVIDER=openai \
   --env OPENAI_API_KEY=your-openai-api-key \
   --env IMAGE_OUTPUT_DIR=/absolute/path/to/images \
-  -- node /absolute/path/to/mcp-image/dist/index.js
+  -- node /absolute/path/to/mcp-image/dist/cli.js
 ```
 
 **Security:** Never commit API keys to version control. Use environment-specific configuration.
 
 **Path requirements:**
-- `IMAGE_OUTPUT_DIR` must be an absolute path (e.g., `/Users/username/images`, not `./images`)
+- `IMAGE_OUTPUT_DIR` accepts an absolute path or a path relative to the MCP server's working directory
 - Defaults to `./output` in the current working directory if not specified
 - Directory will be created automatically if it doesn't exist
 
@@ -372,8 +372,8 @@ The server uses a separate model for each of its two stages:
   },
   "metadata": {
     "model": "gemini-3.1-flash-image",
-    "provider": "gemini",
-    "processingTime": 5000,
+    "processingTime": 0,
+    "contextMethod": "structured_prompt",
     "timestamp": "2026-01-01T12:00:00.000Z"
   }
 }

@@ -85,23 +85,6 @@ class SeedreamTextClientImpl implements TextClient {
     }
   }
 
-  async validateConnection(): Promise<Result<boolean, ImageAPIError | NetworkError>> {
-    try {
-      if (!this.client.responses) {
-        return Err(
-          new ImageAPIError(
-            'Failed to access Seedream Responses API',
-            'Check your ARK_API_KEY configuration'
-          )
-        )
-      }
-
-      return Ok(true)
-    } catch (error) {
-      return this.handleError(error, 'connection validation')
-    }
-  }
-
   private handleError(error: unknown, stage: string): Result<never, ImageAPIError | NetworkError> {
     if (this.isNetworkFailure(error)) {
       const timedOut = this.isAbortFailure(error)

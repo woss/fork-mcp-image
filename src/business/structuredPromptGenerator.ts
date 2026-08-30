@@ -1,18 +1,8 @@
-/**
- * Structured Prompt Generator
- * Uses the selected provider's text client to generate optimized image prompts
- * Applies 7 best practices and 3 feature perspectives through intelligent selection
- */
-
 import type { TextClient } from '../api/textClient.js'
 import type { Result } from '../types/result.js'
 import { Err, Ok } from '../types/result.js'
 import { GeminiAPIError } from '../utils/errors.js'
 
-/**
- * System prompt for structured prompt generation optimized for image generation
- * Follows Google's recommended Subject-Context-Style structure
- */
 const SYSTEM_PROMPT = `You are an expert at crafting prompts for image generation models. Your role is to transform user requests into rich, detailed prompts that maximize image generation quality.
 
 Structure your enhancement around three core elements:
@@ -39,9 +29,6 @@ Core principles:
 - Maintain clarity while adding richness and specificity
 
 Your output should weave these elements into a single, natural flowing description - not a structured list. Make it vivid, engaging, and unambiguous.`
-/**
- * Additional system prompt for image editing mode (when input image is provided)
- */
 const IMAGE_EDITING_CONTEXT = `
 
 IMPORTANT: An input image has been provided. Your task is to:
@@ -51,41 +38,22 @@ IMPORTANT: An input image has been provided. Your task is to:
 4. Be specific about what to keep unchanged vs what to modify
 5. Use phrases like "maintain the existing...", "preserve the original...", "keep the same..." to ensure fidelity to source`
 
-/**
- * Feature flags for image generation
- */
 export interface FeatureFlags {
   maintainCharacterConsistency?: boolean
   blendImages?: boolean
   useWorldKnowledge?: boolean
-  useGoogleSearch?: boolean
 }
 
-/**
- * Result of structured prompt generation
- */
-export interface StructuredPromptResult {
-  originalPrompt: string
-  structuredPrompt: string
-  selectedPractices: string[]
-}
-
-/**
- * Interface for structured prompt generation
- */
 export interface StructuredPromptGenerator {
   generateStructuredPrompt(
     userPrompt: string,
     features?: FeatureFlags,
-    inputImageData?: string, // Optional base64-encoded image for context
-    purpose?: string, // Optional intended use for the image
-    inputImageMimeType?: string // MIME type of the input image
-  ): Promise<Result<StructuredPromptResult, Error>>
+    inputImageData?: string,
+    purpose?: string,
+    inputImageMimeType?: string
+  ): Promise<Result<string, Error>>
 }
 
-/**
- * Provider-neutral implementation of StructuredPromptGenerator
- */
 export class StructuredPromptGeneratorImpl implements StructuredPromptGenerator {
   constructor(
     private readonly textClient: TextClient,
@@ -98,14 +66,12 @@ export class StructuredPromptGeneratorImpl implements StructuredPromptGenerator 
     inputImageData?: string,
     purpose?: string,
     inputImageMimeType?: string
-  ): Promise<Result<StructuredPromptResult, Error>> {
+  ): Promise<Result<string, Error>> {
     try {
-      // Validate input
       if (!userPrompt || userPrompt.trim().length === 0) {
         return Err(new GeminiAPIError('User prompt cannot be empty'))
       }
 
-      // Build complete prompt with system instruction and meta-prompt
       const completePrompt = this.buildCompletePrompt(
         userPrompt,
         features,
@@ -113,12 +79,10 @@ export class StructuredPromptGeneratorImpl implements StructuredPromptGenerator 
         purpose
       )
 
-      // Combine system prompts for image editing mode
       const systemInstruction = inputImageData
         ? SYSTEM_PROMPT + IMAGE_EDITING_CONTEXT
         : SYSTEM_PROMPT
 
-      // Generate structured prompt via pure API call
       const config = {
         temperature: 0.7,
         maxTokens: this.maxTokens,
@@ -132,14 +96,7 @@ export class StructuredPromptGeneratorImpl implements StructuredPromptGenerator 
         return Err(result.error)
       }
 
-      // Extract selected practices from the response
-      const selectedPractices = this.inferSelectedPractices(result.data, features)
-
-      return Ok({
-        originalPrompt: userPrompt,
-        structuredPrompt: result.data,
-        selectedPractices,
-      })
+      return Ok(result.data)
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
 
@@ -147,9 +104,6 @@ export class StructuredPromptGeneratorImpl implements StructuredPromptGenerator 
     }
   }
 
-  /**
-   * Build complete prompt with all optimization context
-   */
   private buildCompletePrompt(
     userPrompt: string,
     features: FeatureFlags,
@@ -158,12 +112,10 @@ export class StructuredPromptGeneratorImpl implements StructuredPromptGenerator 
   ): string {
     const featureContext = this.buildEnhancedFeatureContext(features)
 
-    // Add image editing context if an input image is provided
     const imageEditingInstruction = hasInputImage
       ? `\nNOTE: An input image has been provided. Focus on preserving its original characteristics while applying the requested modifications. Maintain consistency with the source image's style, colors, and atmosphere.\n`
       : ''
 
-    // Add purpose context if provided
     const purposeContext = purpose
       ? `\nINTENDED USE: ${purpose}\nTailor the visual style, quality level, and details to match this purpose.\n`
       : ''
@@ -191,9 +143,6 @@ Enhanced: "Golden retriever mid-leap catching a red frisbee, ears flying, tongue
 Now transform the user's request with similar attention to detail and creative enhancement.`
   }
 
-  /**
-   * Build enhanced feature context based on flags with explicit requirements
-   */
   private buildEnhancedFeatureContext(features: FeatureFlags): string {
     const requirements: string[] = []
 
@@ -221,97 +170,8 @@ Now transform the user's request with similar attention to detail and creative e
 
     return ''
   }
-
-  /**
-   * Infer which best practices were selected based on the generated prompt
-   */
-  private inferSelectedPractices(structuredPrompt: string, features: FeatureFlags): string[] {
-    const selected: string[] = []
-    const promptLower = structuredPrompt.toLowerCase()
-
-    // Check for detailed visual descriptions
-    if (
-      promptLower.includes('lighting') ||
-      promptLower.includes('texture') ||
-      promptLower.includes('atmosphere') ||
-      promptLower.includes('shadow') ||
-      promptLower.includes('material')
-    ) {
-      selected.push('Hyper-Specific Details')
-    }
-
-    // Check for character consistency markers
-    if (
-      features.maintainCharacterConsistency ||
-      promptLower.includes('distinctive') ||
-      promptLower.includes('signature') ||
-      promptLower.includes('characteristic') ||
-      promptLower.includes('always wears') ||
-      promptLower.includes('always has')
-    ) {
-      selected.push('Character Consistency')
-    }
-
-    // Check for multi-element blending
-    if (
-      features.blendImages ||
-      promptLower.includes('overlap') ||
-      promptLower.includes('shared lighting') ||
-      promptLower.includes('color echo') ||
-      promptLower.includes('foreground') ||
-      promptLower.includes('midground') ||
-      promptLower.includes('background')
-    ) {
-      selected.push('Compositional Integration')
-    }
-
-    // Check for world knowledge application
-    if (
-      features.useWorldKnowledge ||
-      promptLower.includes('authentic') ||
-      promptLower.includes('traditional') ||
-      promptLower.includes('typical of') ||
-      promptLower.includes('historically accurate') ||
-      promptLower.includes('culturally')
-    ) {
-      selected.push('Real-World Accuracy')
-    }
-
-    // Check for photographic/artistic terminology
-    if (
-      promptLower.includes('lens') ||
-      promptLower.includes('aperture') ||
-      promptLower.includes('f/') ||
-      promptLower.includes('mm ') ||
-      promptLower.includes('angle') ||
-      promptLower.includes('shot') ||
-      promptLower.includes('depth of field')
-    ) {
-      selected.push('Camera Control Terminology')
-    }
-
-    // Check for atmospheric and mood enhancement
-    if (
-      promptLower.includes('mood') ||
-      promptLower.includes('emotion') ||
-      promptLower.includes('feeling') ||
-      promptLower.includes('ambiance')
-    ) {
-      selected.push('Atmospheric Enhancement')
-    }
-
-    // Ensure we have at least some practices selected
-    if (selected.length === 0) {
-      selected.push('General Enhancement')
-    }
-
-    return selected
-  }
 }
 
-/**
- * Factory function to create StructuredPromptGenerator
- */
 export function createStructuredPromptGenerator(
   textClient: TextClient,
   maxTokens: number

@@ -1,7 +1,3 @@
-/**
- * OpenAI text client for structured prompt enhancement.
- */
-
 import OpenAI from 'openai'
 import type { Result } from '../types/result.js'
 import { Err, Ok } from '../types/result.js'
@@ -86,22 +82,6 @@ class OpenAITextClientImpl implements TextClient {
     }
   }
 
-  async validateConnection(): Promise<Result<boolean, ImageAPIError | NetworkError>> {
-    try {
-      if (!this.client.responses) {
-        return Err(
-          new ImageAPIError(
-            'Failed to access OpenAI Responses API',
-            'Check your OPENAI_API_KEY configuration'
-          )
-        )
-      }
-      return Ok(true)
-    } catch (error) {
-      return this.handleError(error, 'connection validation')
-    }
-  }
-
   private extractResponseText(response: OpenAITextResponse): string {
     if (typeof response.output_text === 'string') {
       return response.output_text
@@ -165,9 +145,6 @@ class OpenAITextClientImpl implements TextClient {
   }
 }
 
-/**
- * Creates a new OpenAI text client for prompt enhancement.
- */
 export function createOpenAITextClient(config: Config): Result<TextClient, ImageAPIError> {
   try {
     return Ok(new OpenAITextClientImpl(config))

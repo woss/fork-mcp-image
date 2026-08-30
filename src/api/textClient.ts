@@ -3,9 +3,6 @@ import type { GeminiAPIError, ImageAPIError, NetworkError } from '../utils/error
 
 export const MAX_TEXT_PROMPT_LENGTH = 100_000
 
-/**
- * Options for text generation used by the prompt enhancer.
- */
 export interface GenerationConfig {
   temperature?: number
   maxTokens?: number
@@ -17,14 +14,9 @@ export interface GenerationConfig {
   topK?: number
 }
 
-/**
- * Provider-neutral text client for prompt enhancement.
- */
 export interface TextClient {
   generateText(
     prompt: string,
     config?: GenerationConfig
   ): Promise<Result<string, GeminiAPIError | ImageAPIError | NetworkError>>
-
-  validateConnection(): Promise<Result<boolean, GeminiAPIError | ImageAPIError | NetworkError>>
 }

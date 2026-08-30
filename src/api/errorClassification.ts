@@ -1,9 +1,3 @@
-/**
- * Shared error classification helpers for API client implementations.
- * Used by both Gemini and OpenAI clients to identify network failures
- * and extract HTTP status codes from SDK errors.
- */
-
 interface ErrorWithCode extends Error {
   code?: string
   status?: number

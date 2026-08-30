@@ -1,15 +1,9 @@
-/**
- * Unit tests for GeminiTextClient
- * Tests public API behaviors only, with external dependencies mocked
- */
-
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Config } from '../../utils/config'
 import { GeminiAPIError, NetworkError } from '../../utils/errors'
 import type { GeminiTextClient } from '../geminiTextClient'
 import { createGeminiTextClient } from '../geminiTextClient'
 
-// Mock GoogleGenAI external dependency
 const mockGenerateContent = vi.fn()
 
 vi.mock('@google/genai', () => ({
@@ -23,7 +17,6 @@ vi.mock('@google/genai', () => ({
 mockGenerateContent.mockImplementation((params: { contents: string }) => {
   const prompt = typeof params.contents === 'string' ? params.contents : ''
 
-  // Handle error scenarios based on prompt content
   if (prompt.includes('network error')) {
     throw new Error('ECONNRESET Network error')
   }
@@ -37,7 +30,6 @@ mockGenerateContent.mockImplementation((params: { contents: string }) => {
     throw new Error('Service temporarily unavailable')
   }
 
-  // Default successful response
   return Promise.resolve({
     text: 'Enhanced: test prompt with professional lighting, 85mm lens, dramatic composition',
     response: {
@@ -52,7 +44,6 @@ describe('GeminiTextClient', () => {
   let client: GeminiTextClient
 
   beforeEach(() => {
-    // Reset mocks
     vi.clearAllMocks()
 
     config = {
@@ -85,30 +76,26 @@ describe('GeminiTextClient', () => {
       }
     })
 
-    it('should handle different generation configurations', async () => {
-      const lowTempResult = await client.generateText('test prompt', {
+    it('passes generation configuration to the Gemini SDK', async () => {
+      const result = await client.generateText('test prompt', {
         temperature: 0.1,
+        maxTokens: 384,
+        topP: 0.8,
+        topK: 20,
       })
-      const highTempResult = await client.generateText('test prompt', {
-        temperature: 0.9,
-      })
-
-      expect(lowTempResult.success).toBe(true)
-      expect(highTempResult.success).toBe(true)
-
-      if (lowTempResult.success && highTempResult.success) {
-        expect(typeof lowTempResult.data).toBe('string')
-        expect(typeof highTempResult.data).toBe('string')
-      }
-    })
-
-    it('should validate connection successfully', async () => {
-      const result = await client.validateConnection()
 
       expect(result.success).toBe(true)
-      if (result.success) {
-        expect(result.data).toBe(true)
-      }
+      expect(mockGenerateContent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          contents: 'test prompt',
+          config: expect.objectContaining({
+            temperature: 0.1,
+            maxOutputTokens: 384,
+            topP: 0.8,
+            topK: 20,
+          }),
+        })
+      )
     })
   })
 

@@ -1,26 +1,22 @@
-/**
- * Response Builder for MCP structured content responses
- * Converts generation results and errors into MCP-compatible response format
- */
-
 import * as path from 'node:path'
 import type { GeneratedImageResult } from '../api/imageClient.js'
-import type { McpToolResponse, StructuredContent } from '../types/mcp.js'
-import {
-  type BaseError,
-  ConfigError,
-  FileOperationError,
-  GeminiAPIError,
-  ImageAPIError,
-  InputValidationError,
-  NetworkError,
-  SecurityError,
-} from '../utils/errors.js'
+import type { McpToolResponse, ResourceContent } from '../types/mcp.js'
+import { BaseError } from '../utils/errors.js'
 import { sanitizeText } from '../utils/logger.js'
 import { getMimeTypeFromExtension, SUPPORTED_MIME_TYPES } from '../utils/mimeUtils.js'
 
 const UNKNOWN_ERROR_CODE = 'UNKNOWN_ERROR'
 const DEFAULT_ERROR_SUGGESTION = 'Please try again or contact support if the problem persists'
+
+export interface UnknownErrorFallback {
+  code: string
+  suggestion: string
+}
+
+const DEFAULT_UNKNOWN_ERROR_FALLBACK: UnknownErrorFallback = {
+  code: UNKNOWN_ERROR_CODE,
+  suggestion: DEFAULT_ERROR_SUGGESTION,
+}
 
 /**
  * Context keys safe to surface in MCP error responses. Anything not on this
@@ -54,23 +50,6 @@ function buildPublicDetails(
   return Object.keys(details).length > 0 ? details : undefined
 }
 
-/**
- * Interface for response builder functionality
- */
-export interface ResponseBuilder {
-  buildSuccessResponse(generationResult: GeneratedImageResult, filePath: string): McpToolResponse
-  buildErrorResponse(error: BaseError | Error): McpToolResponse
-}
-
-/**
- * Determines MIME type from generation metadata with extension-based fallback.
- * Uses the API-reported MIME type as the primary source of truth.
- * Falls back to file extension detection when metadata MIME is unavailable.
- *
- * @param metadataMimeType MIME type from API generation metadata
- * @param filePath Path to the image file (used for fallback)
- * @returns MIME type string
- */
 function resolveMimeType(metadataMimeType: string | undefined, filePath: string): string {
   if (metadataMimeType && SUPPORTED_MIME_TYPES.includes(metadataMimeType)) {
     return metadataMimeType
@@ -79,12 +58,10 @@ function resolveMimeType(metadataMimeType: string | undefined, filePath: string)
   return getMimeTypeFromExtension(ext)
 }
 
-/**
- * Converts various error types to structured error format
- * @param error Error to convert
- * @returns Structured error object
- */
-function convertErrorToStructured(error: BaseError | Error): {
+function convertErrorToStructured(
+  error: Error,
+  unknownFallback: UnknownErrorFallback
+): {
   code: string
   message: string
   suggestion: string
@@ -95,15 +72,7 @@ function convertErrorToStructured(error: BaseError | Error): {
     timestamp: new Date().toISOString(),
   }
 
-  if (
-    error instanceof InputValidationError ||
-    error instanceof FileOperationError ||
-    error instanceof GeminiAPIError ||
-    error instanceof ImageAPIError ||
-    error instanceof NetworkError ||
-    error instanceof ConfigError ||
-    error instanceof SecurityError
-  ) {
+  if (error instanceof BaseError) {
     const details = buildPublicDetails(error.context)
     return {
       ...baseError,
@@ -114,84 +83,65 @@ function convertErrorToStructured(error: BaseError | Error): {
     }
   }
 
-  // Handle unknown errors
   return {
     ...baseError,
-    code: UNKNOWN_ERROR_CODE,
-    message: error.message || 'An unknown error occurred',
-    suggestion: DEFAULT_ERROR_SUGGESTION,
+    code: unknownFallback.code,
+    message: sanitizeText(error.message || 'An unknown error occurred'),
+    suggestion: unknownFallback.suggestion,
   }
 }
 
-/**
- * Creates a response builder with MCP structured content support
- * @returns ResponseBuilder implementation
- */
-export function createResponseBuilder(): ResponseBuilder {
+export function buildSuccessResponse(
+  generationResult: GeneratedImageResult,
+  filePath: string
+): McpToolResponse {
+  const mimeType = resolveMimeType(generationResult.metadata.mimeType, filePath)
+  const fileName = path.basename(filePath)
+
+  const resourceContent: ResourceContent = {
+    type: 'resource',
+    resource: {
+      uri: `file://${filePath}`,
+      name: fileName,
+      mimeType,
+    },
+    metadata: {
+      model: generationResult.metadata.model,
+      ...(generationResult.metadata.provider && {
+        provider: generationResult.metadata.provider,
+      }),
+      processingTime: 0,
+      contextMethod: 'structured_prompt',
+      timestamp: generationResult.metadata.timestamp.toISOString(),
+    },
+  }
+
   return {
-    /**
-     * Builds a successful structured content response with file path
-     * @param generationResult Result from image generation
-     * @param filePath Absolute path to the saved image file (required)
-     * @returns MCP tool response with structured content containing file path
-     */
-    buildSuccessResponse(
-      generationResult: GeneratedImageResult,
-      filePath: string
-    ): McpToolResponse {
-      // File-based implementation: Always return file path, never base64
-      // This avoids MCP token limit issues (25,000 tokens max)
-      const mimeType = resolveMimeType(generationResult.metadata.mimeType, filePath)
-      const fileName = path.basename(filePath)
+    content: [
+      {
+        type: 'text',
+        text: JSON.stringify(resourceContent),
+      },
+    ],
+    isError: false,
+  }
+}
 
-      const structuredContent: StructuredContent = {
-        type: 'resource',
-        resource: {
-          uri: `file://${filePath}`,
-          name: fileName,
-          mimeType,
-        },
-        metadata: {
-          model: generationResult.metadata.model,
-          ...(generationResult.metadata.provider && {
-            provider: generationResult.metadata.provider,
-          }),
-          processingTime: 0, // Not tracked in simplified version
-          contextMethod: 'structured_prompt',
-          timestamp: generationResult.metadata.timestamp.toISOString(),
-        },
-      }
+export function buildErrorResponse(
+  error: Error,
+  unknownFallback: UnknownErrorFallback = DEFAULT_UNKNOWN_ERROR_FALLBACK
+): McpToolResponse {
+  const structuredError = {
+    error: convertErrorToStructured(error, unknownFallback),
+  }
 
-      return {
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify(structuredContent),
-          },
-        ],
-        isError: false,
-      }
-    },
-
-    /**
-     * Builds an error response in structured content format
-     * @param error Error that occurred during processing
-     * @returns MCP tool response with structured error
-     */
-    buildErrorResponse(error: BaseError | Error): McpToolResponse {
-      const structuredError = {
-        error: convertErrorToStructured(error),
-      }
-
-      return {
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify(structuredError),
-          },
-        ],
-        isError: true,
-      }
-    },
+  return {
+    content: [
+      {
+        type: 'text',
+        text: JSON.stringify(structuredError),
+      },
+    ],
+    isError: true,
   }
 }

@@ -1,8 +1,3 @@
-/**
- * Custom error classes for MCP server
- * Provides specific error types with structured error codes and suggestions
- */
-
 import { GEMINI_MODELS } from '../types/mcp.js'
 import { SUPPORTED_EXTENSIONS } from './mimeUtils.js'
 
@@ -28,9 +23,6 @@ export abstract class BaseError extends Error {
   }
 }
 
-/**
- * Error for input validation failures
- */
 export class InputValidationError extends BaseError {
   readonly code = 'INPUT_VALIDATION_ERROR'
 
@@ -42,9 +34,6 @@ export class InputValidationError extends BaseError {
   }
 }
 
-/**
- * Error for file operation failures with intelligent suggestion system
- */
 export class FileOperationError extends BaseError {
   readonly code = 'FILE_OPERATION_ERROR'
 
@@ -83,9 +72,6 @@ export class FileOperationError extends BaseError {
   }
 }
 
-/**
- * Error for Gemini API failures with intelligent suggestion system
- */
 export class GeminiAPIError extends BaseError {
   readonly code = 'GEMINI_API_ERROR'
   private customSuggestion?: string
@@ -98,12 +84,9 @@ export class GeminiAPIError extends BaseError {
     let context: Record<string, unknown> | undefined
     let statusCode: number | undefined
 
-    // Handle backward compatibility with old constructor signature
     if (typeof suggestionOrContext === 'string') {
-      // Old signature: (message, suggestion, statusCode?)
       statusCode = typeof statusCodeOrContext === 'number' ? statusCodeOrContext : undefined
     } else {
-      // New signature: (message, context?, statusCode?)
       context = suggestionOrContext
       statusCode = typeof statusCodeOrContext === 'number' ? statusCodeOrContext : undefined
     }
@@ -118,12 +101,10 @@ export class GeminiAPIError extends BaseError {
   }
 
   get suggestion(): string {
-    // Use custom suggestion if provided (backward compatibility)
     if (this.customSuggestion) {
       return this.customSuggestion
     }
 
-    // Check if suggestion is in context
     if (
       this.context &&
       'suggestion' in this.context &&
@@ -132,7 +113,6 @@ export class GeminiAPIError extends BaseError {
       return this.context['suggestion']
     }
 
-    // Otherwise use intelligent suggestion system
     const message = this.message.toLowerCase()
 
     if (message.includes('authentication') || message.includes('unauthorized')) {
@@ -155,9 +135,6 @@ export class GeminiAPIError extends BaseError {
   }
 }
 
-/**
- * Error for image provider API failures.
- */
 export class ImageAPIError extends BaseError {
   readonly code = 'IMAGE_API_ERROR'
   private customSuggestion: string | undefined
@@ -219,9 +196,6 @@ export class ImageAPIError extends BaseError {
   }
 }
 
-/**
- * Error for network-related failures with intelligent suggestion system
- */
 export class NetworkError extends BaseError {
   readonly code = 'NETWORK_ERROR'
   private customSuggestion?: string
@@ -234,12 +208,9 @@ export class NetworkError extends BaseError {
     let context: Record<string, unknown> | undefined
     let cause: Error | undefined
 
-    // Handle backward compatibility with old constructor signature
     if (typeof suggestionOrContext === 'string') {
-      // Old signature: (message, suggestion, cause?)
       cause = causeOrContext instanceof Error ? causeOrContext : undefined
     } else {
-      // New signature: (message, context?, cause?)
       context = suggestionOrContext
       cause = causeOrContext instanceof Error ? causeOrContext : undefined
     }
@@ -254,12 +225,10 @@ export class NetworkError extends BaseError {
   }
 
   get suggestion(): string {
-    // Use custom suggestion if provided (backward compatibility)
     if (this.customSuggestion) {
       return this.customSuggestion
     }
 
-    // Otherwise use intelligent suggestion system
     const message = this.message.toLowerCase()
     const stack = this.stack?.toLowerCase() || ''
 
@@ -283,9 +252,6 @@ export class NetworkError extends BaseError {
   }
 }
 
-/**
- * Error for configuration failures
- */
 export class ConfigError extends BaseError {
   readonly code = 'CONFIG_ERROR'
 
@@ -297,9 +263,6 @@ export class ConfigError extends BaseError {
   }
 }
 
-/**
- * Error for security violations and attacks with intelligent suggestion system
- */
 export class SecurityError extends BaseError {
   readonly code = 'SECURITY_ERROR'
 

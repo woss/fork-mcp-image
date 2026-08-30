@@ -1,10 +1,17 @@
+import { readFileSync } from 'node:fs'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { generateFileName, saveImage } from '../../business/fileManager.js'
 import { Logger } from '../../utils/logger.js'
 import { createMCPServer, MCPServerImpl } from '../mcpServer'
 
-// Mock the Gemini client for unit tests
+const packageVersion = (
+  JSON.parse(readFileSync(new URL('../../../package.json', import.meta.url), 'utf8')) as {
+    version: string
+  }
+).version
+
 vi.mock('../../api/geminiClient', () => {
   return {
     createGeminiClient: vi.fn().mockImplementation(() => {
@@ -29,7 +36,6 @@ vi.mock('../../api/geminiClient', () => {
   }
 })
 
-// Mock the OpenAI image client for provider routing tests
 vi.mock('../../api/openaiImageClient', () => {
   return {
     createOpenAIImageClient: vi.fn().mockImplementation(() => {
@@ -57,7 +63,6 @@ vi.mock('../../api/openaiImageClient', () => {
   }
 })
 
-// Mock the OpenAI text client for provider routing tests
 vi.mock('../../api/openaiTextClient', () => {
   return {
     createOpenAITextClient: vi.fn().mockImplementation(() => {
@@ -66,95 +71,77 @@ vi.mock('../../api/openaiTextClient', () => {
           success: true,
           data: 'Enhanced OpenAI prompt with professional lighting and composition',
         }),
-        validateConnection: vi.fn().mockResolvedValue({
-          success: true,
-          data: true,
-        }),
       }
       return { success: true, data: mockClient }
     }),
   }
 })
 
-// Mock the FileManager for unit tests
 vi.mock('../../business/fileManager', () => {
   return {
-    createFileManager: vi.fn().mockImplementation(() => {
-      return {
-        saveImage: vi.fn().mockResolvedValue({
-          success: true,
-          data: './test-output/test-image.png',
-        }),
-        ensureDirectoryExists: vi.fn().mockReturnValue({
-          success: true,
-          data: undefined,
-        }),
-        generateFileName: vi.fn().mockImplementation((mimeType?: string) => {
-          if (mimeType === 'image/jpeg') return 'test-image.jpg'
-          if (mimeType === 'image/webp') return 'test-image.webp'
-          return 'test-image.png'
-        }),
-      }
+    saveImage: vi.fn().mockResolvedValue({
+      success: true,
+      data: './test-output/test-image.png',
+    }),
+    generateFileName: vi.fn().mockImplementation((mimeType?: string) => {
+      if (mimeType === 'image/jpeg') return 'test-image.jpg'
+      if (mimeType === 'image/webp') return 'test-image.webp'
+      return 'test-image.png'
     }),
   }
 })
 
-// Mock the ResponseBuilder for unit tests
 vi.mock('../../business/responseBuilder', () => {
   return {
-    createResponseBuilder: vi.fn().mockImplementation(() => {
-      return {
-        buildSuccessResponse: vi.fn().mockReturnValue({
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify({
-                type: 'resource',
-                resource: {
-                  uri: 'file://./test-output/test-image.png',
-                  name: 'test-image.png',
-                  mimeType: 'image/png',
-                },
-                metadata: {
-                  model: 'gemini-3.1-flash-image',
-                  prompt: 'test prompt',
-                  mimeType: 'image/png',
-                  timestamp: new Date().toISOString(),
-                  inputImageProvided: false,
-                  processingTime: 1500,
-                },
-              }),
+    buildSuccessResponse: vi.fn().mockReturnValue({
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({
+            type: 'resource',
+            resource: {
+              uri: 'file://./test-output/test-image.png',
+              name: 'test-image.png',
+              mimeType: 'image/png',
             },
-          ],
-          isError: false,
-        }),
-        buildErrorResponse: vi.fn().mockImplementation((error) => {
-          return {
-            content: [
-              {
-                type: 'text',
-                text: JSON.stringify({
-                  error: {
-                    code: error.code || 'INPUT_VALIDATION_ERROR',
-                    message:
-                      error.message ||
-                      'Prompt must be between 1 and 4000 characters. Current length: 0',
-                    suggestion:
-                      error.suggestion ||
-                      'Please provide a descriptive prompt for image generation.',
-                  },
-                }),
+            metadata: {
+              model: 'gemini-3.1-flash-image',
+              prompt: 'test prompt',
+              mimeType: 'image/png',
+              timestamp: new Date().toISOString(),
+              inputImageProvided: false,
+              processingTime: 1500,
+            },
+          }),
+        },
+      ],
+      isError: false,
+    }),
+    buildErrorResponse: vi.fn().mockImplementation((error, unknownFallback) => {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              error: {
+                code: error.code || unknownFallback?.code || 'UNKNOWN_ERROR',
+                message:
+                  error.message ||
+                  'Prompt must be between 1 and 4000 characters. Current length: 0',
+                suggestion:
+                  error.suggestion ||
+                  unknownFallback?.suggestion ||
+                  'Please try again or contact support if the problem persists',
               },
-            ],
-            isError: true,
-          }
-        }),
+            }),
+          },
+        ],
+        isError: true,
       }
     }),
   }
 })
 
-// Basic tests for MCP server startup and tool registration
 describe('MCP Server', () => {
   let originalApiKey: string | undefined
   let originalArkApiKey: string | undefined
@@ -164,7 +151,6 @@ describe('MCP Server', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    // Set up environment for testing
     originalApiKey = process.env.GEMINI_API_KEY
     originalArkApiKey = process.env.ARK_API_KEY
     originalImageProvider = process.env.IMAGE_PROVIDER
@@ -178,7 +164,6 @@ describe('MCP Server', () => {
     process.env.IMAGE_OUTPUT_DIR = './test-output'
   })
 
-  // Restore environment after tests
   afterEach(() => {
     if (originalApiKey !== undefined) {
       process.env.GEMINI_API_KEY = originalApiKey
@@ -207,36 +192,27 @@ describe('MCP Server', () => {
     }
   })
   it('should create MCP server instance', async () => {
-    // Arrange & Act
     const mcpServer = createMCPServer()
 
-    // Assert: Verify that server is created successfully
     expect(mcpServer).toBeInstanceOf(MCPServerImpl)
-    expect(mcpServer).toBeDefined()
 
-    // Verify that server info is set correctly
     const serverInfo = mcpServer.getServerInfo()
     expect(serverInfo.name).toBe('mcp-image-server')
-    expect(serverInfo.version).toBe('0.1.0')
+    expect(serverInfo.version).toBe(packageVersion)
   })
 
   it('should register generate_image tool', async () => {
-    // Arrange
     const mcpServer = createMCPServer()
 
-    // Act: Get tool list
     const toolsList = mcpServer.getToolsList()
 
-    // Assert: Verify that generate_image tool is registered
     expect(toolsList.tools).toHaveLength(1)
     expect(toolsList.tools[0].name).toBe('generate_image')
     expect(toolsList.tools[0].description).toMatch(/generate a new image/i)
     expect(toolsList.tools[0].description).toMatch(/edit an existing image/i)
     expect(toolsList.tools[0].description).toContain('inputImagePath')
     expect(toolsList.tools[0].description).toMatch(/file resource/i)
-    expect(toolsList.tools[0].inputSchema).toBeDefined()
 
-    // Verify basic schema structure
     const schema = toolsList.tools[0].inputSchema
     expect(schema.type).toBe('object')
     expect(schema.properties).toHaveProperty('prompt')
@@ -278,25 +254,38 @@ describe('MCP Server', () => {
     expect(qualityDescription).toMatch(/speed/)
     expect(qualityDescription).toMatch(/detail/)
     expect(qualityDescription).toMatch(/fidelity/)
-    expect(schema.required).toContain('prompt')
+    expect(schema.required).toEqual(['prompt'])
+    expect(schema.properties.aspectRatio.enum).toEqual([
+      '1:1',
+      '1:4',
+      '1:8',
+      '2:3',
+      '3:2',
+      '3:4',
+      '4:1',
+      '4:3',
+      '4:5',
+      '5:4',
+      '8:1',
+      '9:16',
+      '16:9',
+      '21:9',
+    ])
+    expect(schema.properties.imageSize.enum).toEqual(['1K', '2K', '4K'])
+    expect(schema.properties.quality.enum).toEqual(['fast', 'balanced', 'quality'])
+    expect(schema.properties.provider.enum).toEqual(['gemini', 'openai', 'seedream'])
   })
 
   it('should return file URI when no fileName is specified', async () => {
-    // Arrange
     const mcpServer = createMCPServer()
 
-    // Act: Execute basic tool request without fileName
     const result = await mcpServer.callTool('generate_image', {
       prompt: 'test prompt',
     })
 
-    // Assert: Verify that file URI is returned in structured format
-    expect(result).toBeDefined()
-    expect(result.content).toBeDefined()
     expect(result.content).toHaveLength(1)
     expect(result.content[0].type).toBe('text')
 
-    // Should be structured JSON response
     const responseData = JSON.parse(result.content[0].text)
     expect(responseData).toHaveProperty('type', 'resource')
     expect(responseData).toHaveProperty('resource')
@@ -308,23 +297,17 @@ describe('MCP Server', () => {
   })
 
   it('should save to file when fileName is specified', async () => {
-    // Arrange
     const mcpServer = createMCPServer()
     const testFileName = 'test-image.png'
 
-    // Act: Execute tool request with fileName
     const result = await mcpServer.callTool('generate_image', {
       prompt: 'test prompt',
       fileName: testFileName,
     })
 
-    // Assert: Verify that file URI is returned
-    expect(result).toBeDefined()
-    expect(result.content).toBeDefined()
     expect(result.content).toHaveLength(1)
     expect(result.content[0].type).toBe('text')
 
-    // Verify response structure (should be JSON with file URI)
     const responseData = JSON.parse(result.content[0].text)
     expect(responseData).toHaveProperty('type', 'resource')
     expect(responseData).toHaveProperty('resource')
@@ -336,19 +319,14 @@ describe('MCP Server', () => {
   })
 
   it('should handle invalid tool request', async () => {
-    // Arrange
     const mcpServer = createMCPServer()
 
-    // Act: Execute request with invalid tool name
     const result = await mcpServer.callTool('invalid_tool', {})
 
-    // Assert: Verify that structured error is returned
-    expect(result).toBeDefined()
     expect(result.isError).toBe(true)
     expect(result.content).toHaveLength(1)
     expect(result.content[0].type).toBe('text')
 
-    // Verify error structure
     const responseData = JSON.parse(result.content[0].text)
     expect(responseData).toHaveProperty('error')
     expect(responseData.error.code).toBe('INTERNAL_ERROR')
@@ -357,58 +335,40 @@ describe('MCP Server', () => {
   })
 
   it('should pass mimeType to generateFileName for auto-generated filenames', async () => {
-    // Arrange
     const mcpServer = createMCPServer()
 
-    // Act
     await mcpServer.callTool('generate_image', {
       prompt: 'test prompt',
     })
 
-    // Assert: generateFileName should be called with the mimeType from API metadata
-    const { createFileManager } = await import('../../business/fileManager')
-    const fileManagerInstance = (createFileManager as ReturnType<typeof vi.fn>).mock.results[0]
-      .value
-    expect(fileManagerInstance.generateFileName).toHaveBeenCalledWith('image/png')
+    expect(generateFileName).toHaveBeenCalledWith('image/png')
   })
 
   it('should append extension to user-provided filename without extension', async () => {
-    // Arrange
     const mcpServer = createMCPServer()
 
-    // Act
     await mcpServer.callTool('generate_image', {
       prompt: 'test prompt',
       fileName: 'my-photo',
     })
 
-    // Assert: saveImage should be called with a path ending in .png
-    const { createFileManager } = await import('../../business/fileManager')
-    const fileManagerInstance = (createFileManager as ReturnType<typeof vi.fn>).mock.results[0]
-      .value
-    const saveImageCall = fileManagerInstance.saveImage.mock.calls[0]
+    const saveImageCall = vi.mocked(saveImage).mock.calls[0]
     const savedPath = saveImageCall[1] as string
     expect(savedPath).toMatch(/my-photo\.png$/)
   })
 
   it('should preserve a user-provided extension when it matches the actual MIME type', async () => {
-    // Arrange
     process.env.IMAGE_PROVIDER = 'openai'
     delete process.env.GEMINI_API_KEY
     process.env.OPENAI_API_KEY = 'test-openai-api-key-unit-tests'
     const mcpServer = createMCPServer()
 
-    // Act
     await mcpServer.callTool('generate_image', {
       prompt: 'test prompt',
       fileName: 'my-photo.jpg',
     })
 
-    // Assert: saveImage should be called with path preserving the .jpg extension
-    const { createFileManager } = await import('../../business/fileManager')
-    const fileManagerInstance = (createFileManager as ReturnType<typeof vi.fn>).mock.results[0]
-      .value
-    const saveImageCall = fileManagerInstance.saveImage.mock.calls[0]
+    const saveImageCall = vi.mocked(saveImage).mock.calls[0]
     const savedPath = saveImageCall[1] as string
     expect(savedPath).toMatch(/my-photo\.jpg$/)
   })
@@ -424,10 +384,7 @@ describe('MCP Server', () => {
         fileName: 'my-photo.jpg',
       })
 
-      const { createFileManager } = await import('../../business/fileManager')
-      const fileManagerInstance = (createFileManager as ReturnType<typeof vi.fn>).mock.results[0]
-        .value
-      const savedPath = fileManagerInstance.saveImage.mock.calls[0][1] as string
+      const savedPath = vi.mocked(saveImage).mock.calls[0][1]
       expect(savedPath).toMatch(/my-photo\.png$/)
       expect(warnSpy).toHaveBeenCalledWith(
         'mcp-server',
@@ -444,42 +401,29 @@ describe('MCP Server', () => {
   })
 
   it('should sanitize filename before reconciling its extension', async () => {
-    // Arrange
     const mcpServer = createMCPServer()
 
-    // Act: filename with control chars and no extension
     await mcpServer.callTool('generate_image', {
       prompt: 'test prompt',
       fileName: '...my-photo\x00',
     })
 
-    // Assert: sanitizeFilename runs first (strips leading dots, null bytes),
-    // then extension reconciliation adds .png
-    const { createFileManager } = await import('../../business/fileManager')
-    const fileManagerInstance = (createFileManager as ReturnType<typeof vi.fn>).mock.results[0]
-      .value
-    const saveImageCall = fileManagerInstance.saveImage.mock.calls[0]
+    const saveImageCall = vi.mocked(saveImage).mock.calls[0]
     const savedPath = saveImageCall[1] as string
-    // After sanitize: 'my-photo', after reconciliation: 'my-photo.png'
     expect(savedPath).toMatch(/my-photo\.png$/)
   })
 
   it('should validate prompt parameter', async () => {
-    // Arrange
     const mcpServer = createMCPServer()
 
-    // Act: Execute tool with empty prompt
     const result = await mcpServer.callTool('generate_image', {
       prompt: '',
     })
 
-    // Assert: Verify that structured validation error is returned
-    expect(result).toBeDefined()
     expect(result.isError).toBe(true)
     expect(result.content).toHaveLength(1)
     expect(result.content[0].type).toBe('text')
 
-    // Verify error structure
     const responseData = JSON.parse(result.content[0].text)
     expect(responseData).toHaveProperty('error')
     expect(responseData.error.code).toBe('INPUT_VALIDATION_ERROR')
@@ -488,19 +432,15 @@ describe('MCP Server', () => {
   })
 
   it('should route image generation through OpenAI provider when configured', async () => {
-    // Arrange
     process.env.IMAGE_PROVIDER = 'openai'
     delete process.env.GEMINI_API_KEY
     process.env.OPENAI_API_KEY = 'test-openai-api-key-unit-tests'
     const mcpServer = createMCPServer()
 
-    // Act
     const result = await mcpServer.callTool('generate_image', {
       prompt: 'test prompt',
     })
 
-    // Assert
-    expect(result).toBeDefined()
     expect(result.isError).toBe(false)
 
     const { createGeminiClient } = await import('../../api/geminiClient')
@@ -522,17 +462,14 @@ describe('MCP Server', () => {
   })
 
   it('should route image generation through the provider requested in the tool call', async () => {
-    // Arrange: server default stays gemini, the request asks for openai
     process.env.OPENAI_API_KEY = 'test-openai-api-key-unit-tests'
     const mcpServer = createMCPServer()
 
-    // Act
     const result = await mcpServer.callTool('generate_image', {
       prompt: 'test prompt',
       provider: 'openai',
     })
 
-    // Assert
     expect(result.isError).toBe(false)
 
     const { createGeminiClient } = await import('../../api/geminiClient')
@@ -553,12 +490,10 @@ describe('MCP Server', () => {
   })
 
   it('should build fresh clients when a later call requests another provider', async () => {
-    // Arrange
     process.env.OPENAI_API_KEY = 'test-openai-api-key-unit-tests'
     process.env.SKIP_PROMPT_ENHANCEMENT = 'true'
     const mcpServer = createMCPServer()
 
-    // Act
     const geminiResult = await mcpServer.callTool('generate_image', {
       prompt: 'test prompt',
       provider: 'gemini',
@@ -572,7 +507,6 @@ describe('MCP Server', () => {
       provider: 'gemini',
     })
 
-    // Assert
     expect(geminiResult.isError).toBe(false)
     expect(openaiResult.isError).toBe(false)
     expect(cachedGeminiResult.isError).toBe(false)
@@ -580,8 +514,6 @@ describe('MCP Server', () => {
     const { createGeminiClient } = await import('../../api/geminiClient')
     const { createOpenAIImageClient } = await import('../../api/openaiImageClient')
 
-    // The second call must build the OpenAI client instead of reusing the Gemini one,
-    // while the third call reuses the cached Gemini client.
     expect(createOpenAIImageClient).toHaveBeenCalledTimes(1)
     expect(createGeminiClient).toHaveBeenCalledTimes(1)
   })
@@ -616,7 +548,6 @@ describe('MCP Server', () => {
       expectedProvider,
       expectedEnvironmentVariable,
     }) => {
-      // Arrange
       delete process.env.GEMINI_API_KEY
       delete process.env.OPENAI_API_KEY
       delete process.env.ARK_API_KEY
@@ -627,13 +558,11 @@ describe('MCP Server', () => {
       }
       const mcpServer = createMCPServer()
 
-      // Act
       const result = await mcpServer.callTool('generate_image', {
         prompt: 'test prompt',
         ...(requestProvider && { provider: requestProvider }),
       })
 
-      // Assert
       expect(result.isError).toBe(true)
       const responseData = JSON.parse(result.content[0].text)
       expect(responseData.error.code).toBe('CONFIG_ERROR')
@@ -692,11 +621,7 @@ describe('MCP Server', () => {
       const imageParams = imageClient.generateImage.mock.calls[0][0]
       expect(imageParams).not.toHaveProperty('preferredOutputFormat')
 
-      const { createFileManager } = await import('../../business/fileManager')
-      const fileManagerInstance = (createFileManager as ReturnType<typeof vi.fn>).mock.results.at(
-        -1
-      )?.value
-      const savedPath = fileManagerInstance.saveImage.mock.calls[0][1] as string
+      const savedPath = vi.mocked(saveImage).mock.calls[0][1]
       expect(savedPath.endsWith(expectedSavedName)).toBe(true)
     }
   )
@@ -741,142 +666,5 @@ describe('MCP Server', () => {
       await client.close()
       await server.close()
     }
-  })
-})
-
-// Test suite for aspectRatio parameter in generate_image tool schema
-describe('MCPServer tool schema - aspectRatio', () => {
-  it('should include aspectRatio in generate_image schema', () => {
-    // Arrange
-    const mcpServer = createMCPServer()
-
-    // Act
-    const toolsList = mcpServer.getToolsList()
-    const generateImageTool = toolsList.tools.find((t) => t.name === 'generate_image')
-
-    // Assert
-    expect(generateImageTool).toBeDefined()
-    expect(generateImageTool?.inputSchema.properties).toHaveProperty('aspectRatio')
-    expect(generateImageTool?.inputSchema.properties?.aspectRatio.type).toBe('string')
-  })
-
-  it('should define enum with 14 supported aspect ratios in schema', () => {
-    // Arrange
-    const mcpServer = createMCPServer()
-
-    // Act
-    const toolsList = mcpServer.getToolsList()
-    const generateImageTool = toolsList.tools.find((t) => t.name === 'generate_image')
-    const aspectRatioEnum = generateImageTool?.inputSchema.properties?.aspectRatio.enum
-
-    // Assert
-    expect(aspectRatioEnum).toHaveLength(14)
-    expect(aspectRatioEnum).toContain('1:1')
-    expect(aspectRatioEnum).toContain('16:9')
-    expect(aspectRatioEnum).toContain('21:9')
-    expect(aspectRatioEnum).toContain('1:4')
-    expect(aspectRatioEnum).toContain('1:8')
-    expect(aspectRatioEnum).toContain('4:1')
-    expect(aspectRatioEnum).toContain('8:1')
-  })
-
-  it('should mark aspectRatio as optional in schema', () => {
-    // Arrange
-    const mcpServer = createMCPServer()
-
-    // Act
-    const toolsList = mcpServer.getToolsList()
-    const generateImageTool = toolsList.tools.find((t) => t.name === 'generate_image')
-
-    // Assert
-    expect(generateImageTool?.inputSchema.required).toContain('prompt')
-    expect(generateImageTool?.inputSchema.required).not.toContain('aspectRatio')
-  })
-})
-
-// Test suite for quality parameter in generate_image tool schema
-describe('MCPServer tool schema - quality', () => {
-  it('should include quality parameter in generate_image schema', () => {
-    // Arrange
-    const mcpServer = createMCPServer()
-
-    // Act
-    const toolsList = mcpServer.getToolsList()
-    const generateImageTool = toolsList.tools.find((t) => t.name === 'generate_image')
-
-    // Assert
-    expect(generateImageTool?.inputSchema.properties).toHaveProperty('quality')
-    expect(generateImageTool?.inputSchema.properties?.quality.type).toBe('string')
-    expect(generateImageTool?.inputSchema.properties?.quality.enum).toEqual([
-      'fast',
-      'balanced',
-      'quality',
-    ])
-  })
-
-  it('should mark quality as optional in schema', () => {
-    // Arrange
-    const mcpServer = createMCPServer()
-
-    // Act
-    const toolsList = mcpServer.getToolsList()
-    const generateImageTool = toolsList.tools.find((t) => t.name === 'generate_image')
-
-    // Assert
-    expect(generateImageTool?.inputSchema.required).toContain('prompt')
-    expect(generateImageTool?.inputSchema.required).not.toContain('quality')
-  })
-})
-
-// Test suite for provider parameter in generate_image tool schema
-describe('MCPServer tool schema - provider', () => {
-  it('should include provider parameter in generate_image schema', () => {
-    // Arrange
-    const mcpServer = createMCPServer()
-
-    // Act
-    const toolsList = mcpServer.getToolsList()
-    const generateImageTool = toolsList.tools.find((t) => t.name === 'generate_image')
-
-    // Assert
-    expect(generateImageTool?.inputSchema.properties).toHaveProperty('provider')
-    expect(generateImageTool?.inputSchema.properties?.provider.type).toBe('string')
-    expect(generateImageTool?.inputSchema.properties?.provider.enum).toEqual([
-      'gemini',
-      'openai',
-      'seedream',
-    ])
-  })
-
-  it('should mark provider as optional in schema', () => {
-    // Arrange
-    const mcpServer = createMCPServer()
-
-    // Act
-    const toolsList = mcpServer.getToolsList()
-    const generateImageTool = toolsList.tools.find((t) => t.name === 'generate_image')
-
-    // Assert
-    expect(generateImageTool?.inputSchema.required).toContain('prompt')
-    expect(generateImageTool?.inputSchema.required).not.toContain('provider')
-  })
-})
-
-// Test suite for imageSize parameter in generate_image tool schema
-describe('MCPServer tool schema - imageSize', () => {
-  it('should define enum with 4 image sizes in schema', () => {
-    // Arrange
-    const mcpServer = createMCPServer()
-
-    // Act
-    const toolsList = mcpServer.getToolsList()
-    const generateImageTool = toolsList.tools.find((t) => t.name === 'generate_image')
-    const imageSizeEnum = generateImageTool?.inputSchema.properties?.imageSize.enum
-
-    // Assert
-    expect(imageSizeEnum).toHaveLength(3)
-    expect(imageSizeEnum).toContain('1K')
-    expect(imageSizeEnum).toContain('2K')
-    expect(imageSizeEnum).toContain('4K')
   })
 })

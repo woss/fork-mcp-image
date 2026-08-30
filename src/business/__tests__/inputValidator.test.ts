@@ -10,13 +10,10 @@ import {
 describe('inputValidator', () => {
   describe('validatePrompt', () => {
     it('should return error for empty prompt', () => {
-      // Arrange
       const emptyPrompt = ''
 
-      // Act
       const result = validatePrompt(emptyPrompt)
 
-      // Assert
       expect(result.success).toBe(false)
       if (!result.success) {
         expect(result.error.code).toBe('INPUT_VALIDATION_ERROR')
@@ -25,13 +22,10 @@ describe('inputValidator', () => {
     })
 
     it('should return error for prompt exceeding 4000 characters', () => {
-      // Arrange
       const longPrompt = 'a'.repeat(4001)
 
-      // Act
       const result = validatePrompt(longPrompt)
 
-      // Assert
       expect(result.success).toBe(false)
       if (!result.success) {
         expect(result.error.code).toBe('INPUT_VALIDATION_ERROR')
@@ -39,28 +33,11 @@ describe('inputValidator', () => {
       }
     })
 
-    it('should return success for valid prompt', () => {
-      // Arrange
-      const validPrompt = 'Generate a beautiful landscape'
-
-      // Act
-      const result = validatePrompt(validPrompt)
-
-      // Assert
-      expect(result.success).toBe(true)
-      if (result.success) {
-        expect(result.data).toBe(validPrompt)
-      }
-    })
-
     it('should return success for prompt at boundary (1 character)', () => {
-      // Arrange
       const boundaryPrompt = 'a'
 
-      // Act
       const result = validatePrompt(boundaryPrompt)
 
-      // Assert
       expect(result.success).toBe(true)
       if (result.success) {
         expect(result.data).toBe(boundaryPrompt)
@@ -68,13 +45,10 @@ describe('inputValidator', () => {
     })
 
     it('should return success for prompt at boundary (4000 characters)', () => {
-      // Arrange
       const boundaryPrompt = 'a'.repeat(4000)
 
-      // Act
       const result = validatePrompt(boundaryPrompt)
 
-      // Assert
       expect(result.success).toBe(true)
       if (result.success) {
         expect(result.data).toBe(boundaryPrompt)
@@ -84,15 +58,12 @@ describe('inputValidator', () => {
 
   describe('validateBase64Image', () => {
     it('should return success for BMP MIME type', () => {
-      // Arrange
       const base64Data =
-        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==' // 1x1 PNG
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=='
       const bmpMimeType = 'image/bmp'
 
-      // Act
       const result = validateBase64Image(base64Data, bmpMimeType)
 
-      // Assert
       expect(result.success).toBe(true)
       if (result.success) {
         expect(result.data).toBeInstanceOf(Buffer)
@@ -100,13 +71,10 @@ describe('inputValidator', () => {
     })
 
     it('should return error for invalid base64 format', () => {
-      // Arrange
       const invalidBase64 = 'not-valid-base64-data!'
 
-      // Act
       const result = validateBase64Image(invalidBase64)
 
-      // Assert
       expect(result.success).toBe(false)
       if (!result.success) {
         expect(result.error.code).toBe('INPUT_VALIDATION_ERROR')
@@ -115,10 +83,8 @@ describe('inputValidator', () => {
     })
 
     it('should return success for undefined image data', () => {
-      // Arrange & Act
       const result = validateBase64Image(undefined)
 
-      // Assert
       expect(result.success).toBe(true)
       if (result.success) {
         expect(result.data).toBeUndefined()
@@ -126,14 +92,11 @@ describe('inputValidator', () => {
     })
 
     it('should return success for image data at exactly 10MB', () => {
-      // Arrange
       const boundaryBinaryData = Buffer.alloc(MAX_IMAGE_SIZE, 'a')
       const boundaryBase64 = boundaryBinaryData.toString('base64')
 
-      // Act
       const result = validateBase64Image(boundaryBase64)
 
-      // Assert
       expect(result.success).toBe(true)
       if (result.success) {
         expect(result.data).toHaveLength(MAX_IMAGE_SIZE)
@@ -141,14 +104,11 @@ describe('inputValidator', () => {
     })
 
     it('should return error for image data exceeding 10MB by one byte', () => {
-      // Arrange
       const largeBinaryData = Buffer.alloc(MAX_IMAGE_SIZE + 1, 'a')
       const largeBase64 = largeBinaryData.toString('base64')
 
-      // Act
       const result = validateBase64Image(largeBase64)
 
-      // Assert
       expect(result.success).toBe(false)
       if (!result.success) {
         expect(result.error.code).toBe('INPUT_VALIDATION_ERROR')
@@ -160,15 +120,12 @@ describe('inputValidator', () => {
 
   describe('validateGenerateImageParams', () => {
     it('should return error for invalid params', () => {
-      // Arrange
       const invalidParams: GenerateImageParams = {
-        prompt: '', // Invalid empty prompt
+        prompt: '',
       }
 
-      // Act
       const result = validateGenerateImageParams(invalidParams)
 
-      // Assert
       expect(result.success).toBe(false)
       if (!result.success) {
         expect(result.error.message).toContain('Prompt must be between 1 and 4000 characters')
@@ -176,15 +133,12 @@ describe('inputValidator', () => {
     })
 
     it('should return success for valid params', () => {
-      // Arrange
       const validParams: GenerateImageParams = {
         prompt: 'Generate a beautiful landscape',
       }
 
-      // Act
       const result = validateGenerateImageParams(validParams)
 
-      // Assert
       expect(result.success).toBe(true)
       if (result.success) {
         expect(result.data).toEqual(validParams)
@@ -192,16 +146,13 @@ describe('inputValidator', () => {
     })
 
     it('should return error for invalid new feature parameters', () => {
-      // Arrange
       const invalidParams: GenerateImageParams = {
         prompt: 'Generate a beautiful landscape',
-        blendImages: 'true' as any, // Invalid: should be boolean
+        blendImages: 'true' as any,
       }
 
-      // Act
       const result = validateGenerateImageParams(invalidParams)
 
-      // Assert
       expect(result.success).toBe(false)
       if (!result.success) {
         expect(result.error.message).toContain('blendImages must be a boolean value')
@@ -209,7 +160,6 @@ describe('inputValidator', () => {
     })
 
     it('should return success for valid new feature parameters', () => {
-      // Arrange
       const validParams: GenerateImageParams = {
         prompt: 'Generate a beautiful landscape',
         blendImages: true,
@@ -217,10 +167,8 @@ describe('inputValidator', () => {
         useWorldKnowledge: true,
       }
 
-      // Act
       const result = validateGenerateImageParams(validParams)
 
-      // Assert
       expect(result.success).toBe(true)
       if (result.success) {
         expect(result.data).toEqual(validParams)
@@ -268,7 +216,6 @@ describe('inputValidator', () => {
 
   describe('validateGenerateImageParams with aspectRatio', () => {
     it('should accept all 14 supported aspect ratios', () => {
-      // Arrange
       const supportedRatios: AspectRatio[] = [
         '1:1',
         '1:4',
@@ -286,7 +233,6 @@ describe('inputValidator', () => {
         '21:9',
       ]
 
-      // Act & Assert
       for (const ratio of supportedRatios) {
         const result = validateGenerateImageParams({
           prompt: 'test',
@@ -297,60 +243,16 @@ describe('inputValidator', () => {
     })
 
     it('should reject invalid aspect ratio "7:3"', () => {
-      // Arrange
       const invalidParams: GenerateImageParams = {
         prompt: 'test',
-        aspectRatio: '7:3' as AspectRatio, // Type assertion for test
+        aspectRatio: '7:3' as AspectRatio,
       }
 
-      // Act
       const result = validateGenerateImageParams(invalidParams)
 
-      // Assert
       expect(result.success).toBe(false)
       if (!result.success) {
         expect(result.error.message).toContain('Invalid aspect ratio')
-      }
-    })
-
-    it('should accept new aspect ratios (1:4, 1:8, 4:1, 8:1)', () => {
-      // Arrange & Act & Assert
-      const newRatios: AspectRatio[] = ['1:4', '1:8', '4:1', '8:1']
-      for (const ratio of newRatios) {
-        const result = validateGenerateImageParams({
-          prompt: 'test',
-          aspectRatio: ratio,
-        })
-        expect(result.success).toBe(true)
-      }
-    })
-
-    it('should accept undefined aspectRatio (default)', () => {
-      // Arrange
-      const validParams: GenerateImageParams = {
-        prompt: 'test',
-      }
-
-      // Act
-      const result = validateGenerateImageParams(validParams)
-
-      // Assert
-      expect(result.success).toBe(true)
-    })
-
-    it('should include supported values list in validation error message', () => {
-      // Arrange
-      const invalidParams: GenerateImageParams = {
-        prompt: 'test',
-        aspectRatio: 'invalid' as AspectRatio,
-      }
-
-      // Act
-      const result = validateGenerateImageParams(invalidParams)
-
-      // Assert
-      expect(result.success).toBe(false)
-      if (!result.success) {
         expect(result.error.message).toContain('1:1')
         expect(result.error.message).toContain('21:9')
       }
@@ -359,10 +261,8 @@ describe('inputValidator', () => {
 
   describe('validateGenerateImageParams with quality', () => {
     it('should accept all valid quality values', () => {
-      // Arrange
       const validQualities = ['fast', 'balanced', 'quality'] as const
 
-      // Act & Assert
       for (const quality of validQualities) {
         const result = validateGenerateImageParams({
           prompt: 'test',
@@ -372,22 +272,12 @@ describe('inputValidator', () => {
       }
     })
 
-    it('should accept undefined quality (optional)', () => {
-      // Arrange & Act
-      const result = validateGenerateImageParams({ prompt: 'test' })
-
-      // Assert
-      expect(result.success).toBe(true)
-    })
-
     it('should reject invalid quality value', () => {
-      // Arrange
       const result = validateGenerateImageParams({
         prompt: 'test',
         quality: 'ultra' as any,
       })
 
-      // Assert
       expect(result.success).toBe(false)
       if (!result.success) {
         expect(result.error.message).toContain('Invalid quality')
@@ -400,10 +290,8 @@ describe('inputValidator', () => {
 
   describe('validateGenerateImageParams with provider', () => {
     it('should accept all valid provider values', () => {
-      // Arrange
       const validProviders = ['gemini', 'openai', 'seedream'] as const
 
-      // Act & Assert
       for (const provider of validProviders) {
         const result = validateGenerateImageParams({
           prompt: 'test',
@@ -413,22 +301,12 @@ describe('inputValidator', () => {
       }
     })
 
-    it('should accept undefined provider (optional)', () => {
-      // Arrange & Act
-      const result = validateGenerateImageParams({ prompt: 'test' })
-
-      // Assert
-      expect(result.success).toBe(true)
-    })
-
     it('should reject invalid provider value', () => {
-      // Arrange
       const result = validateGenerateImageParams({
         prompt: 'test',
         provider: 'midjourney' as any,
       })
 
-      // Assert
       expect(result.success).toBe(false)
       if (!result.success) {
         expect(result.error.message).toContain('Invalid provider')
