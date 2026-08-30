@@ -127,7 +127,7 @@ For OpenAI GPT Image from a local fork:
 ```toml
 [mcp_servers.mcp-image]
 command = "node"
-args = ["/absolute/path/to/mcp-image/dist/cli.js"]
+args = ["/absolute/path/to/mcp-image/dist/index.js"]
 
 [mcp_servers.mcp-image.env]
 IMAGE_PROVIDER = "openai"
@@ -163,7 +163,7 @@ For OpenAI GPT Image from a local fork:
   "mcpServers": {
     "mcp-image": {
       "command": "node",
-      "args": ["/absolute/path/to/mcp-image/dist/cli.js"],
+      "args": ["/absolute/path/to/mcp-image/dist/index.js"],
       "env": {
         "IMAGE_PROVIDER": "openai",
         "OPENAI_API_KEY": "your_openai_api_key_here",
@@ -198,7 +198,7 @@ claude mcp add mcp-image --scope user \
   --env IMAGE_PROVIDER=openai \
   --env OPENAI_API_KEY=your-openai-api-key \
   --env IMAGE_OUTPUT_DIR=/absolute/path/to/images \
-  -- node /absolute/path/to/mcp-image/dist/cli.js
+  -- node /absolute/path/to/mcp-image/dist/index.js
 ```
 
 **Security:** Never commit API keys to version control. Use environment-specific configuration.
