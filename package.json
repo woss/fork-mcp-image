@@ -2,7 +2,7 @@
   "name": "mcp-image",
   "mcpName": "io.github.shinpr/mcp-image",
   "version": "0.13.1",
-  "packageManager": "pnpm@10.34.1",
+  "packageManager": "pnpm@11.24.0",
   "description": "MCP server for AI image generation",
   "type": "module",
   "main": "dist/index.js",
@@ -77,12 +77,6 @@
   },
   "engines": {
     "node": ">=22"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "@google/genai",
-      "protobufjs"
-    ]
   },
   "lint-staged": {
     "src/**/*.{ts,tsx}": "biome check --write --no-errors-on-unmatched"
