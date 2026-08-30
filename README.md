@@ -122,19 +122,6 @@ GEMINI_API_KEY = "your_gemini_api_key_here"
 IMAGE_OUTPUT_DIR = "/absolute/path/to/images"
 ```
 
-For OpenAI GPT Image from a local fork:
-
-```toml
-[mcp_servers.mcp-image]
-command = "node"
-args = ["/absolute/path/to/mcp-image/dist/index.js"]
-
-[mcp_servers.mcp-image.env]
-IMAGE_PROVIDER = "openai"
-OPENAI_API_KEY = "your_openai_api_key_here"
-IMAGE_OUTPUT_DIR = "/absolute/path/to/images"
-```
-
 #### For Cursor
 
 Add to your Cursor settings:
@@ -149,24 +136,6 @@ Add to your Cursor settings:
       "args": ["-y", "mcp-image"],
       "env": {
         "GEMINI_API_KEY": "your_gemini_api_key_here",
-        "IMAGE_OUTPUT_DIR": "/absolute/path/to/images"
-      }
-    }
-  }
-}
-```
-
-For OpenAI GPT Image from a local fork:
-
-```json
-{
-  "mcpServers": {
-    "mcp-image": {
-      "command": "node",
-      "args": ["/absolute/path/to/mcp-image/dist/index.js"],
-      "env": {
-        "IMAGE_PROVIDER": "openai",
-        "OPENAI_API_KEY": "your_openai_api_key_here",
         "IMAGE_OUTPUT_DIR": "/absolute/path/to/images"
       }
     }
@@ -189,17 +158,26 @@ Or add globally for all projects:
 claude mcp add mcp-image --scope user --env GEMINI_API_KEY=your-api-key --env IMAGE_OUTPUT_DIR=/absolute/path/to/images -- npx -y mcp-image
 ```
 
-For OpenAI GPT Image from a local fork:
+<details>
+<summary>Run from a local checkout</summary>
+
+Use this when testing changes that are not in the npm package:
 
 ```bash
 pnpm install
 pnpm run build
-claude mcp add mcp-image --scope user \
-  --env IMAGE_PROVIDER=openai \
-  --env OPENAI_API_KEY=your-openai-api-key \
-  --env IMAGE_OUTPUT_DIR=/absolute/path/to/images \
-  -- node /absolute/path/to/mcp-image/dist/index.js
 ```
+
+Then configure your MCP client to run:
+
+```bash
+node /absolute/path/to/mcp-image/dist/index.js
+```
+
+For Codex and Cursor, set the command to `node` and use the path as its only argument. For
+Claude Code, put the command after `--` in the `claude mcp add` command.
+
+</details>
 
 **Security:** Never commit API keys to version control. Use environment-specific configuration.
 
