@@ -1,8 +1,3 @@
-/**
- * Tests for ErrorHandler utility
- * Covers unified error handling and Result type wrapping
- */
-
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   FileOperationError,
@@ -12,7 +7,6 @@ import {
 } from '../../utils/errors'
 import { ErrorHandler } from '../errorHandler'
 
-// Mock the logger
 vi.mock('../../utils/logger', () => ({
   Logger: class {
     error = vi.fn()
@@ -28,110 +22,44 @@ describe('ErrorHandler', () => {
   })
 
   describe('handleError', () => {
-    it('should handle InputValidationError correctly', () => {
-      // Arrange
-      const error = new InputValidationError(
-        'Prompt is too long',
-        'Prompt length must be 1-4000 characters'
-      )
-
-      // Act
-      const response = ErrorHandler.handleError(error)
-
-      // Assert
-      expect(response).toMatchObject({
-        isError: true,
-        content: [
-          {
-            type: 'text',
-            text: expect.stringContaining('"INPUT_VALIDATION_ERROR"'),
-          },
-        ],
-      })
-      expect(response.content[0].text).toContain('Prompt is too long')
-      expect(response.content[0].text).toContain('Prompt length must be 1-4000 characters')
-    })
-
-    it('should handle GeminiAPIError correctly', () => {
-      // Arrange
-      const error = new GeminiAPIError(
-        'API quota exceeded',
+    it.each([
+      [
+        new InputValidationError('Prompt is too long', 'Prompt length must be 1-4000 characters'),
+        'INPUT_VALIDATION_ERROR',
+        'Prompt length must be 1-4000 characters',
+      ],
+      [
+        new GeminiAPIError('API quota exceeded', 'Check GEMINI_API_KEY environment variable', 429),
+        'GEMINI_API_ERROR',
         'Check GEMINI_API_KEY environment variable',
-        429
-      )
-
-      // Act
-      const response = ErrorHandler.handleError(error)
-
-      // Assert
-      expect(response).toMatchObject({
-        isError: true,
-        content: [
-          {
-            type: 'text',
-            text: expect.stringContaining('"GEMINI_API_ERROR"'),
-          },
-        ],
-      })
-      expect(response.content[0].text).toContain('API quota exceeded')
-      expect(response.content[0].text).toContain('Check GEMINI_API_KEY environment variable')
-    })
-
-    it('should handle NetworkError correctly', () => {
-      // Arrange
-      const originalError = new Error('Connection timeout')
-      const error = new NetworkError(
-        'Network request failed',
+      ],
+      [
+        new NetworkError(
+          'Network request failed',
+          'Check internet connection and retry',
+          new Error('Connection timeout')
+        ),
+        'NETWORK_ERROR',
         'Check internet connection and retry',
-        originalError
-      )
-
-      // Act
+      ],
+      [
+        new FileOperationError('Failed to save image: Permission denied'),
+        'FILE_OPERATION_ERROR',
+        'Check file and directory permissions for the output path',
+      ],
+    ])('preserves structured %s errors', (error, code, suggestion) => {
       const response = ErrorHandler.handleError(error)
+      const body = JSON.parse(response.content[0].text)
 
-      // Assert
-      expect(response).toMatchObject({
-        isError: true,
-        content: [
-          {
-            type: 'text',
-            text: expect.stringContaining('"NETWORK_ERROR"'),
-          },
-        ],
-      })
-      expect(response.content[0].text).toContain('Network request failed')
-      expect(response.content[0].text).toContain('Check internet connection and retry')
-    })
-
-    it('should handle FileOperationError correctly', () => {
-      // Arrange
-      const error = new FileOperationError('Failed to save image: Permission denied')
-
-      // Act
-      const response = ErrorHandler.handleError(error)
-
-      // Assert
-      expect(response).toMatchObject({
-        isError: true,
-        content: [
-          {
-            type: 'text',
-            text: expect.stringContaining('"FILE_OPERATION_ERROR"'),
-          },
-        ],
-      })
-      expect(response.content[0].text).toContain('Failed to save image')
-      expect(response.content[0].text).toContain('Check file and directory permissions')
+      expect(response.isError).toBe(true)
+      expect(body.error).toMatchObject({ code, message: error.message, suggestion })
     })
 
     it('should handle unknown Error types', () => {
-      // Arrange
       const error = new Error('Unknown error occurred')
 
-      // Act
       const response = ErrorHandler.handleError(error)
 
-      // Assert
       expect(response).toMatchObject({
         isError: true,
         content: [
@@ -144,34 +72,14 @@ describe('ErrorHandler', () => {
       expect(response.content[0].text).toContain('Unknown error occurred')
       expect(response.content[0].text).toContain('Contact system administrator')
     })
-
-    it('should produce valid JSON in response content', () => {
-      // Arrange
-      const error = new InputValidationError('Test error', 'Test suggestion')
-
-      // Act
-      const response = ErrorHandler.handleError(error)
-
-      // Assert
-      expect(() => JSON.parse(response.content[0].text)).not.toThrow()
-
-      const parsedContent = JSON.parse(response.content[0].text)
-      expect(parsedContent).toHaveProperty('error')
-      expect(parsedContent.error).toHaveProperty('code')
-      expect(parsedContent.error).toHaveProperty('message')
-      expect(parsedContent.error).toHaveProperty('suggestion')
-    })
   })
 
   describe('wrapWithResultType', () => {
     it('should return Ok result for successful operation', async () => {
-      // Arrange
       const successOperation = vi.fn().mockResolvedValue('success result')
 
-      // Act
       const result = await ErrorHandler.wrapWithResultType(successOperation)
 
-      // Assert
       expect(result.success).toBe(true)
       if (result.success) {
         expect(result.data).toBe('success result')
@@ -180,14 +88,11 @@ describe('ErrorHandler', () => {
     })
 
     it('should return Err result for failed operation', async () => {
-      // Arrange
       const error = new Error('Operation failed')
       const failedOperation = vi.fn().mockRejectedValue(error)
 
-      // Act
       const result = await ErrorHandler.wrapWithResultType(failedOperation)
 
-      // Assert
       expect(result.success).toBe(false)
       if (!result.success) {
         expect(result.error).toBe(error)
@@ -196,62 +101,15 @@ describe('ErrorHandler', () => {
     })
 
     it('should handle non-Error thrown values', async () => {
-      // Arrange
       const nonErrorValue = 'string error'
       const failedOperation = vi.fn().mockRejectedValue(nonErrorValue)
 
-      // Act
       const result = await ErrorHandler.wrapWithResultType(failedOperation)
 
-      // Assert
       expect(result.success).toBe(false)
       if (!result.success) {
         expect(result.error).toBeInstanceOf(Error)
         expect(result.error.message).toBe('Unknown error')
-      }
-    })
-
-    it('should log operation context when provided', async () => {
-      // Arrange
-      const error = new Error('Test error')
-      const failedOperation = vi.fn().mockRejectedValue(error)
-      const context = 'test-operation'
-
-      // Act
-      await ErrorHandler.wrapWithResultType(failedOperation, context)
-
-      // Assert: Logger mock should have been called (verified through coverage)
-      expect(failedOperation).toHaveBeenCalledOnce()
-    })
-  })
-
-  describe('safeExecute compatibility', () => {
-    it('should work with the safeExecute function pattern', async () => {
-      // Arrange
-      const testOperation = (): Promise<string> => Promise.resolve('test result')
-
-      // Act
-      const result = await ErrorHandler.wrapWithResultType(testOperation, 'test-context')
-
-      // Assert
-      expect(result.success).toBe(true)
-      if (result.success) {
-        expect(result.data).toBe('test result')
-      }
-    })
-
-    it('should handle failed operations with context logging', async () => {
-      // Arrange
-      const testError = new NetworkError('Network failed', 'Check connection')
-      const testOperation = (): Promise<string> => Promise.reject(testError)
-
-      // Act
-      const result = await ErrorHandler.wrapWithResultType(testOperation, 'network-test')
-
-      // Assert
-      expect(result.success).toBe(false)
-      if (!result.success) {
-        expect(result.error).toBe(testError)
       }
     })
   })

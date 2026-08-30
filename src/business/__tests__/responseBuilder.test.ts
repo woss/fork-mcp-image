@@ -1,38 +1,28 @@
-/**
- * Test suite for ResponseBuilder
- * Tests structured content response generation for both success and error cases
- */
-
-import { beforeEach, describe, expect, it } from 'vitest'
-import type { GeneratedImageResult } from '../../api/geminiClient'
+import { describe, expect, it } from 'vitest'
+import type { GeneratedImageResult } from '../../api/imageClient'
 import {
   FileOperationError,
   GeminiAPIError,
   InputValidationError,
   NetworkError,
 } from '../../utils/errors'
-import { createResponseBuilder, type ResponseBuilder } from '../responseBuilder'
+import * as responseBuilder from '../responseBuilder'
 
 describe('ResponseBuilder', () => {
-  let responseBuilder: ResponseBuilder
-
-  beforeEach(() => {
-    responseBuilder = createResponseBuilder()
+  const makeGenerationResult = (mimeType: string): GeneratedImageResult => ({
+    imageData: Buffer.from('fake-image-data'),
+    metadata: {
+      model: 'gemini-3.1-flash-image',
+      prompt: 'test prompt',
+      mimeType,
+      timestamp: new Date('2025-08-28T12:00:00Z'),
+      inputImageProvided: false,
+    },
   })
 
   describe('buildSuccessResponse', () => {
     it('should create file URI structured content response when filePath is provided', () => {
-      const testImageData = Buffer.from('fake-image-data')
-      const generationResult: GeneratedImageResult = {
-        imageData: testImageData,
-        metadata: {
-          model: 'gemini-3.1-flash-image',
-          prompt: 'test prompt',
-          mimeType: 'image/png',
-          timestamp: new Date('2025-08-28T12:00:00Z'),
-          inputImageProvided: false,
-        },
-      }
+      const generationResult = makeGenerationResult('image/png')
       const testFilePath = '/path/to/generated-image.png'
 
       const response = responseBuilder.buildSuccessResponse(generationResult, testFilePath)
@@ -54,106 +44,20 @@ describe('ResponseBuilder', () => {
       })
     })
 
-    it('should use metadata MIME type image/jpeg when available', () => {
-      const generationResult: GeneratedImageResult = {
-        imageData: Buffer.from('fake-image-data'),
-        metadata: {
-          model: 'gemini-3.1-flash-image',
-          prompt: 'test prompt',
-          mimeType: 'image/jpeg',
-          timestamp: new Date('2025-08-28T12:00:00Z'),
-          inputImageProvided: false,
-        },
-      }
-
-      const response = responseBuilder.buildSuccessResponse(generationResult, '/path/to/image.jpg')
+    it.each([
+      ['image/jpeg', '/path/to/image.jpg', 'image/jpeg'],
+      ['image/webp', '/path/to/image.webp', 'image/webp'],
+      ['image/png', '/path/to/image.png', 'image/png'],
+      [undefined, '/path/to/image.webp', 'image/webp'],
+      ['', '/path/to/image.jpg', 'image/jpeg'],
+      ['image/tiff', '/path/to/image.tiff', 'image/png'],
+    ])('resolves metadata MIME %s and path %s to %s', (metadataMime, filePath, expectedMime) => {
+      const response = responseBuilder.buildSuccessResponse(
+        makeGenerationResult(metadataMime as string),
+        filePath
+      )
       const contentData = JSON.parse(response.content[0].text)
-      expect(contentData.resource.mimeType).toBe('image/jpeg')
-    })
-
-    it('should use metadata MIME type image/webp when available', () => {
-      const generationResult: GeneratedImageResult = {
-        imageData: Buffer.from('fake-image-data'),
-        metadata: {
-          model: 'gemini-3.1-flash-image',
-          prompt: 'test prompt',
-          mimeType: 'image/webp',
-          timestamp: new Date('2025-08-28T12:00:00Z'),
-          inputImageProvided: false,
-        },
-      }
-
-      const response = responseBuilder.buildSuccessResponse(generationResult, '/path/to/image.webp')
-      const contentData = JSON.parse(response.content[0].text)
-      expect(contentData.resource.mimeType).toBe('image/webp')
-    })
-
-    it('should use metadata MIME type image/png when available', () => {
-      const generationResult: GeneratedImageResult = {
-        imageData: Buffer.from('fake-image-data'),
-        metadata: {
-          model: 'gemini-3.1-flash-image',
-          prompt: 'test prompt',
-          mimeType: 'image/png',
-          timestamp: new Date('2025-08-28T12:00:00Z'),
-          inputImageProvided: false,
-        },
-      }
-
-      const response = responseBuilder.buildSuccessResponse(generationResult, '/path/to/image.png')
-      const contentData = JSON.parse(response.content[0].text)
-      expect(contentData.resource.mimeType).toBe('image/png')
-    })
-
-    it('should fall back to extension-based detection when metadata MIME is undefined', () => {
-      const generationResult: GeneratedImageResult = {
-        imageData: Buffer.from('fake-image-data'),
-        metadata: {
-          model: 'gemini-3.1-flash-image',
-          prompt: 'test prompt',
-          mimeType: undefined as unknown as string,
-          timestamp: new Date('2025-08-28T12:00:00Z'),
-          inputImageProvided: false,
-        },
-      }
-
-      const response = responseBuilder.buildSuccessResponse(generationResult, '/path/to/image.webp')
-      const contentData = JSON.parse(response.content[0].text)
-      expect(contentData.resource.mimeType).toBe('image/webp')
-    })
-
-    it('should fall back to extension-based detection when metadata MIME is empty string', () => {
-      const generationResult: GeneratedImageResult = {
-        imageData: Buffer.from('fake-image-data'),
-        metadata: {
-          model: 'gemini-3.1-flash-image',
-          prompt: 'test prompt',
-          mimeType: '',
-          timestamp: new Date('2025-08-28T12:00:00Z'),
-          inputImageProvided: false,
-        },
-      }
-
-      const response = responseBuilder.buildSuccessResponse(generationResult, '/path/to/image.jpg')
-      const contentData = JSON.parse(response.content[0].text)
-      expect(contentData.resource.mimeType).toBe('image/jpeg')
-    })
-
-    it('should fall back to default MIME type for unsupported metadata MIME type', () => {
-      const generationResult: GeneratedImageResult = {
-        imageData: Buffer.from('fake-image-data'),
-        metadata: {
-          model: 'gemini-3.1-flash-image',
-          prompt: 'test prompt',
-          mimeType: 'image/tiff',
-          timestamp: new Date('2025-08-28T12:00:00Z'),
-          inputImageProvided: false,
-        },
-      }
-
-      const response = responseBuilder.buildSuccessResponse(generationResult, '/path/to/image.tiff')
-      const contentData = JSON.parse(response.content[0].text)
-      expect(contentData.resource.mimeType).toBe('image/png')
+      expect(contentData.resource.mimeType).toBe(expectedMime)
     })
   })
 
@@ -216,7 +120,6 @@ describe('ResponseBuilder', () => {
       const response = responseBuilder.buildErrorResponse(error)
       const errorData = JSON.parse(response.content[0].text)
 
-      expect(errorData.error.details).toBeDefined()
       expect(errorData.error.details.provider).toBe('gemini')
       expect(errorData.error.details.upstreamMessage).toContain('content policy violation')
       expect(errorData.error.details.prompt).toBeUndefined()
@@ -259,6 +162,17 @@ describe('ResponseBuilder', () => {
       const errorData = JSON.parse(response.content[0].text)
       expect(errorData.error.code).toBe('UNKNOWN_ERROR')
       expect(errorData.error.message).toContain('Unknown error')
+    })
+
+    it('should redact secrets from unknown error messages', () => {
+      const secret = 'sk-proj-ABCDEF123456789'
+      const response = responseBuilder.buildErrorResponse(
+        new Error(`Request failed with OPENAI_API_KEY=${secret}`)
+      )
+
+      const errorData = JSON.parse(response.content[0].text)
+      expect(errorData.error.message).toContain('[REDACTED]')
+      expect(errorData.error.message).not.toContain(secret)
     })
   })
 })

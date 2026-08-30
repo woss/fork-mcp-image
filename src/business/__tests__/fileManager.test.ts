@@ -1,31 +1,62 @@
-/**
- * Test suite for FileManager
- * Tests file operations including saving images and directory management
- */
-
 import { promises as fs } from 'node:fs'
 import * as path from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-// Remove unused import - using .success property directly
-import { FileOperationError } from '../../utils/errors'
-import { createFileManager, type FileManager } from '../fileManager'
+import { afterEach, describe, expect, it } from 'vitest'
+import { FileOperationError, SecurityError } from '../../utils/errors'
+import * as fileManager from '../fileManager'
 
 describe('FileManager', () => {
-  let fileManager: FileManager
   const testOutputDir = path.join(process.cwd(), 'tmp', 'test-output')
   const testImageData = Buffer.from('fake-image-data')
 
-  beforeEach(() => {
-    fileManager = createFileManager()
-  })
-
   afterEach(async () => {
-    // Clean up test files
     try {
       await fs.rm(testOutputDir, { recursive: true })
     } catch {
-      // Ignore cleanup errors
+      // A test may fail before creating the directory.
     }
+  })
+
+  describe('readInputImage', () => {
+    it('reads image bytes and derives the MIME type from the resolved file', async () => {
+      const inputPath = path.join(testOutputDir, 'input.png')
+      await fs.mkdir(testOutputDir, { recursive: true })
+      await fs.writeFile(inputPath, testImageData)
+
+      const inputImage = await fileManager.readInputImage(inputPath)
+
+      expect(inputImage).toEqual({ data: testImageData, mimeType: 'image/png' })
+    })
+
+    it('resolves symlinks before validating the target extension and MIME type', async () => {
+      const targetPath = path.join(testOutputDir, 'target.webp')
+      const symlinkPath = path.join(testOutputDir, 'input.png')
+      await fs.mkdir(testOutputDir, { recursive: true })
+      await fs.writeFile(targetPath, testImageData)
+      await fs.symlink(targetPath, symlinkPath)
+
+      const inputImage = await fileManager.readInputImage(symlinkPath)
+
+      expect(inputImage).toEqual({ data: testImageData, mimeType: 'image/webp' })
+    })
+
+    it('rejects unsafe and unsupported input paths', async () => {
+      const unsupportedPath = path.join(testOutputDir, 'input.txt')
+      await fs.mkdir(testOutputDir, { recursive: true })
+      await fs.writeFile(unsupportedPath, testImageData)
+
+      await expect(fileManager.readInputImage('/tmp/image.png\0.exe')).rejects.toBeInstanceOf(
+        SecurityError
+      )
+      await expect(fileManager.readInputImage('/tmp/../etc/passwd')).rejects.toMatchObject({
+        message: 'Path traversal attempt detected',
+      })
+      await expect(
+        fileManager.readInputImage('/tmp/nonexistent-file-12345.png')
+      ).rejects.toMatchObject({ message: 'File path cannot be resolved' })
+      await expect(fileManager.readInputImage(unsupportedPath)).rejects.toMatchObject({
+        message: 'Unsupported file extension: .txt',
+      })
+    })
   })
 
   describe('saveImage', () => {
@@ -37,7 +68,6 @@ describe('FileManager', () => {
       expect(result.success).toBe(true)
       if (result.success) {
         expect(result.data).toBe(outputPath)
-        // Verify file was actually created
         const savedData = await fs.readFile(outputPath)
         expect(savedData).toEqual(testImageData)
       }
@@ -51,7 +81,6 @@ describe('FileManager', () => {
       expect(result.success).toBe(true)
       if (result.success) {
         expect(result.data).toBe(nestedPath)
-        // Verify file and directories were created
         const savedData = await fs.readFile(nestedPath)
         expect(savedData).toEqual(testImageData)
       }
@@ -71,77 +100,19 @@ describe('FileManager', () => {
     })
   })
 
-  describe('ensureDirectoryExists', () => {
-    it('should create directory successfully if it does not exist', () => {
-      const newDirPath = path.join(testOutputDir, 'new-directory')
-
-      const result = fileManager.ensureDirectoryExists(newDirPath)
-
-      expect(result.success).toBe(true)
-    })
-
-    it('should succeed if directory already exists', async () => {
-      await fs.mkdir(testOutputDir, { recursive: true })
-
-      const result = fileManager.ensureDirectoryExists(testOutputDir)
-
-      expect(result.success).toBe(true)
-    })
-
-    it('should return error for invalid directory path', () => {
-      const invalidPath = '/invalid/\0/directory'
-
-      const result = fileManager.ensureDirectoryExists(invalidPath)
-
-      expect(result.success).toBe(false)
-      if (!result.success) {
-        expect(result.error).toBeInstanceOf(FileOperationError)
-        expect(result.error.code).toBe('FILE_OPERATION_ERROR')
-      }
-    })
-  })
-
   describe('generateFileName', () => {
-    it('should return .png extension when called without mimeType argument', () => {
-      const fileName = fileManager.generateFileName()
-
-      expect(fileName).toMatch(/^image-\d{13}-[0-9a-f]{8}\.png$/)
-    })
-
-    it('should return .jpg extension when mimeType is image/jpeg', () => {
-      const fileName = fileManager.generateFileName('image/jpeg')
-
-      expect(fileName).toMatch(/^image-\d{13}-[0-9a-f]{8}\.jpg$/)
-    })
-
-    it('should return .webp extension when mimeType is image/webp', () => {
-      const fileName = fileManager.generateFileName('image/webp')
-
-      expect(fileName).toMatch(/^image-\d{13}-[0-9a-f]{8}\.webp$/)
-    })
-
-    it('should return .png extension when mimeType is image/png', () => {
-      const fileName = fileManager.generateFileName('image/png')
-
-      expect(fileName).toMatch(/^image-\d{13}-[0-9a-f]{8}\.png$/)
-    })
-
-    it('should return .gif extension when mimeType is image/gif', () => {
-      const fileName = fileManager.generateFileName('image/gif')
-
-      expect(fileName).toMatch(/^image-\d{13}-[0-9a-f]{8}\.gif$/)
-    })
-
-    it('should return .bmp extension when mimeType is image/bmp', () => {
-      const fileName = fileManager.generateFileName('image/bmp')
-
-      expect(fileName).toMatch(/^image-\d{13}-[0-9a-f]{8}\.bmp$/)
-    })
-
-    it('should return .png extension as fallback for unknown mimeType', () => {
-      const fileName = fileManager.generateFileName('image/unknown')
-
-      expect(fileName).toMatch(/^image-\d{13}-[0-9a-f]{8}\.png$/)
+    it.each([
+      [undefined, 'png'],
+      ['image/jpeg', 'jpg'],
+      ['image/webp', 'webp'],
+      ['image/png', 'png'],
+      ['image/gif', 'gif'],
+      ['image/bmp', 'bmp'],
+      ['image/unknown', 'png'],
+    ])('uses the expected extension for MIME type %s', (mimeType, extension) => {
+      expect(fileManager.generateFileName(mimeType)).toMatch(
+        new RegExp(`^image-\\d{13}-[0-9a-f]{8}\\.${extension}$`)
+      )
     })
   })
 })

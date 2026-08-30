@@ -177,16 +177,6 @@ describe('seedreamTextClient', () => {
     expect(Object.hasOwn(body, 'extra_body')).toBe(false)
   })
 
-  it('validates the local Responses connection without external I/O', async () => {
-    const transport = vi.fn<typeof fetch>()
-    vi.stubGlobal('fetch', transport)
-
-    const result = await createClient().validateConnection()
-
-    expect(result).toEqual({ success: true, data: true })
-    expect(transport).not.toHaveBeenCalled()
-  })
-
   it('normalizes SDK status errors without disclosing secrets, prompts, or upstream bodies', async () => {
     const rawBodyMarker = 'private-upstream-response-body'
     const transport = vi.fn<typeof fetch>().mockResolvedValue(

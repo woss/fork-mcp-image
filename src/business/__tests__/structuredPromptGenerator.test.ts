@@ -1,7 +1,3 @@
-/**
- * Tests for StructuredPromptGenerator
- */
-
 import { describe, expect, it, vi } from 'vitest'
 import type { GeminiTextClient } from '../../api/geminiTextClient'
 import { Err, Ok } from '../../types/result'
@@ -11,7 +7,6 @@ import { StructuredPromptGeneratorImpl } from '../structuredPromptGenerator'
 describe('StructuredPromptGenerator', () => {
   const mockGeminiTextClient: GeminiTextClient = {
     generateText: vi.fn(),
-    validateConnection: vi.fn(),
   }
 
   beforeEach(() => {
@@ -35,9 +30,7 @@ describe('StructuredPromptGenerator', () => {
 
       expect(result.success).toBe(true)
       if (result.success) {
-        expect(result.data.originalPrompt).toBe(userPrompt)
-        expect(result.data.structuredPrompt).toBe(structuredPrompt)
-        expect(result.data.selectedPractices).toContain('Hyper-Specific Details')
+        expect(result.data).toBe(structuredPrompt)
       }
       expect(mockGeminiTextClient.generateText).toHaveBeenCalledWith(
         expect.any(String),
@@ -72,12 +65,19 @@ describe('StructuredPromptGenerator', () => {
 
       const result = await generator.generateStructuredPrompt(userPrompt, features)
 
-      // Assert: Verify feature flags affect the generated output
       expect(result.success).toBe(true)
-      if (result.success) {
-        expect(result.data.selectedPractices).toContain('Character Consistency')
-        expect(result.data.selectedPractices).toContain('Real-World Accuracy')
-      }
+      expect(mockGeminiTextClient.generateText).toHaveBeenCalledWith(
+        expect.stringContaining('Character consistency is CRITICAL'),
+        expect.any(Object)
+      )
+      expect(mockGeminiTextClient.generateText).toHaveBeenCalledWith(
+        expect.stringContaining('Apply accurate real-world knowledge'),
+        expect.any(Object)
+      )
+      expect(mockGeminiTextClient.generateText).toHaveBeenCalledWith(
+        expect.not.stringContaining('MUST describe spatial and visual integration'),
+        expect.any(Object)
+      )
     })
 
     it('should return error for empty prompt', async () => {
@@ -107,43 +107,24 @@ describe('StructuredPromptGenerator', () => {
       }
     })
 
-    it('should infer selected practices from generated prompt', async () => {
-      const generator = createGenerator()
-      const userPrompt = 'A portrait'
-      const structuredPrompt =
-        'A portrait with dramatic lighting, 85mm lens at f/1.4 aperture, maintaining facial features consistency'
-
-      vi.mocked(mockGeminiTextClient.generateText).mockResolvedValue(Ok(structuredPrompt))
-
-      const result = await generator.generateStructuredPrompt(userPrompt, {
-        maintainCharacterConsistency: true,
-      })
-
-      expect(result.success).toBe(true)
-      if (result.success) {
-        expect(result.data.selectedPractices).toContain('Hyper-Specific Details')
-        expect(result.data.selectedPractices).toContain('Character Consistency')
-        expect(result.data.selectedPractices).toContain('Camera Control Terminology')
-      }
-    })
-
     it('should include purpose context when purpose is provided', async () => {
       const generator = createGenerator()
       const userPrompt = 'Delicious pasta dish'
       const purpose = 'high-end Italian restaurant menu'
 
-      vi.mocked(mockGeminiTextClient.generateText).mockResolvedValue(
-        Ok('Professional food photography of artfully plated pasta')
-      )
+      const structuredPrompt = 'Professional food photography of artfully plated pasta'
+      vi.mocked(mockGeminiTextClient.generateText).mockResolvedValue(Ok(structuredPrompt))
 
       const result = await generator.generateStructuredPrompt(userPrompt, {}, undefined, purpose)
 
-      // Assert: Verify purpose context affects the output
       expect(result.success).toBe(true)
       if (result.success) {
-        // The structured prompt should be enhanced for the intended purpose
-        expect(result.data.structuredPrompt.length).toBeGreaterThan(userPrompt.length)
+        expect(result.data).toBe(structuredPrompt)
       }
+      expect(mockGeminiTextClient.generateText).toHaveBeenCalledWith(
+        expect.stringContaining(`INTENDED USE: ${purpose}`),
+        expect.any(Object)
+      )
     })
 
     it('should not include purpose context when purpose is not provided', async () => {
@@ -156,12 +137,14 @@ describe('StructuredPromptGenerator', () => {
 
       const result = await generator.generateStructuredPrompt(userPrompt)
 
-      // Assert: Without purpose, should still generate a valid structured prompt
       expect(result.success).toBe(true)
       if (result.success) {
-        expect(result.data.originalPrompt).toBe(userPrompt)
-        expect(result.data.structuredPrompt).toBe('A fluffy cat with soft lighting')
+        expect(result.data).toBe('A fluffy cat with soft lighting')
       }
+      expect(mockGeminiTextClient.generateText).toHaveBeenCalledWith(
+        expect.not.stringContaining('INTENDED USE:'),
+        expect.any(Object)
+      )
     })
   })
 })

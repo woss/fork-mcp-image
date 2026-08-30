@@ -1,16 +1,9 @@
-/**
- * MCP Image Generator - Server Entry Point
- */
-
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { MCPServerImpl } from './server/mcpServer.js'
 import { Logger } from './utils/logger.js'
 
 const logger = new Logger()
 
-/**
- * Application startup
- */
 async function main(): Promise<void> {
   try {
     logger.info('mcp-startup', 'Starting MCP Image Generator initialization', {
@@ -37,7 +30,6 @@ async function main(): Promise<void> {
   }
 }
 
-// Run main function
 main().catch((error) => {
   logger.error('mcp-startup', 'Fatal error during startup', error as Error)
   process.exit(1)

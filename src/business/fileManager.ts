@@ -1,48 +1,102 @@
-/**
- * File Manager for handling image file operations
- * Provides functionality for saving images and managing directories
- */
-
 import { randomBytes } from 'node:crypto'
-import { promises as fs, mkdirSync } from 'node:fs'
+import { constants as fsConstants, mkdirSync } from 'node:fs'
+import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import type { Result } from '../types/result.js'
 import { Err, Ok } from '../types/result.js'
-import { FileOperationError } from '../utils/errors.js'
-import { DEFAULT_MIME_TYPE, getExtensionFromMimeType } from '../utils/mimeUtils.js'
+import { FileOperationError, InputValidationError, SecurityError } from '../utils/errors.js'
+import {
+  DEFAULT_MIME_TYPE,
+  getExtensionFromMimeType,
+  getMimeTypeFromExtension,
+  SUPPORTED_EXTENSIONS,
+} from '../utils/mimeUtils.js'
+import { MAX_IMAGE_SIZE } from './inputValidator.js'
 
-// Constants for file naming and error messages
 const FILE_NAME_PREFIX = 'image' as const
 const RANDOM_BYTES_LENGTH = 4 as const
 
 const ERROR_MESSAGES = {
   SAVE_FAILED: 'Failed to save image file',
   DIRECTORY_CREATION_FAILED: 'Failed to create directory',
-  PERMISSION_SUGGESTION: 'Check output directory permissions and disk space',
-  PATH_SUGGESTION: 'Check directory path validity and write permissions',
 } as const
 
-/**
- * Interface for file management operations
- */
-export interface FileManager {
-  saveImage(
-    imageData: Buffer,
-    outputPath: string,
-    format?: string
-  ): Promise<Result<string, FileOperationError>>
-  ensureDirectoryExists(dirPath: string): Result<void, FileOperationError>
-  generateFileName(mimeType?: string): string
+const INPUT_IMAGE_OPEN_FLAGS =
+  fsConstants.O_RDONLY |
+  (typeof fsConstants.O_NONBLOCK === 'number' ? fsConstants.O_NONBLOCK : 0) |
+  (typeof fsConstants.O_NOFOLLOW === 'number' ? fsConstants.O_NOFOLLOW : 0)
+
+export interface InputImage {
+  data: Buffer
+  mimeType: string
 }
 
-/**
- * Ensures that the specified directory exists, creating it if necessary
- * @param dirPath Path to the directory
- * @returns Result indicating success or failure
- */
+function createInputImageSizeError(actualSize: number): InputValidationError {
+  const sizeInMB = (actualSize / (1024 * 1024)).toFixed(1)
+  const limitInMB = (MAX_IMAGE_SIZE / (1024 * 1024)).toFixed(1)
+  return new InputValidationError(
+    `Image size exceeds ${limitInMB}MB limit. Current size: ${sizeInMB}MB`,
+    `Please compress your image or reduce its resolution to stay below ${limitInMB}MB`
+  )
+}
+
+export async function readInputImage(inputPath: string): Promise<InputImage> {
+  if (inputPath.includes('\0')) {
+    throw new SecurityError('Null byte detected in file path')
+  }
+  if (inputPath.includes('..')) {
+    throw new SecurityError('Path traversal attempt detected')
+  }
+
+  let realPath: string
+  try {
+    realPath = await fs.realpath(path.resolve(inputPath))
+  } catch {
+    throw new SecurityError('File path cannot be resolved')
+  }
+
+  const extension = path.extname(realPath).toLowerCase()
+  if (!SUPPORTED_EXTENSIONS.includes(extension)) {
+    throw new SecurityError(`Unsupported file extension: ${extension}`)
+  }
+
+  const fileHandle = await fs.open(realPath, INPUT_IMAGE_OPEN_FLAGS)
+  try {
+    const stats = await fileHandle.stat()
+    if (!stats.isFile()) {
+      throw new InputValidationError(
+        'Input image must be a regular file',
+        'Please provide a path to a regular PNG, JPEG, or WebP image file'
+      )
+    }
+    if (stats.size > MAX_IMAGE_SIZE) {
+      throw createInputImageSizeError(stats.size)
+    }
+
+    const boundedBuffer = Buffer.alloc(MAX_IMAGE_SIZE + 1)
+    let observedBytes = 0
+    while (observedBytes < boundedBuffer.length) {
+      const readLength = Math.min(64 * 1024, boundedBuffer.length - observedBytes)
+      const { bytesRead } = await fileHandle.read(boundedBuffer, observedBytes, readLength, null)
+      if (bytesRead === 0) break
+
+      observedBytes += bytesRead
+      if (observedBytes > MAX_IMAGE_SIZE) {
+        throw createInputImageSizeError(observedBytes)
+      }
+    }
+
+    return {
+      data: boundedBuffer.subarray(0, observedBytes),
+      mimeType: getMimeTypeFromExtension(extension),
+    }
+  } finally {
+    await fileHandle.close()
+  }
+}
+
 function ensureDirectoryExists(dirPath: string): Result<void, FileOperationError> {
   try {
-    // Use mkdirSync with recursive option to create all necessary parent directories
     mkdirSync(dirPath, { recursive: true })
     return Ok(undefined)
   } catch (error) {
@@ -54,58 +108,31 @@ function ensureDirectoryExists(dirPath: string): Result<void, FileOperationError
   }
 }
 
-/**
- * Generates a unique filename based on timestamp and random component
- * @param mimeType Optional MIME type to determine file extension (defaults to image/png)
- * @returns Generated filename in the format: image-{timestamp}-{hex}.{ext}
- */
-function generateFileName(mimeType?: string): string {
+export function generateFileName(mimeType?: string): string {
   const timestamp = Date.now()
   const random = randomBytes(RANDOM_BYTES_LENGTH).toString('hex')
   const extension = getExtensionFromMimeType(mimeType ?? DEFAULT_MIME_TYPE)
   return `${FILE_NAME_PREFIX}-${timestamp}-${random}${extension}`
 }
 
-/**
- * Creates a file manager for image file operations
- * @returns FileManager implementation
- */
-export function createFileManager(): FileManager {
-  return {
-    /**
-     * Saves image data to the specified file path
-     * @param imageData Buffer containing the image data
-     * @param outputPath Absolute path where the image should be saved
-     * @param format Image format (used for validation)
-     * @returns Result containing the saved file path or an error
-     */
-    async saveImage(
-      imageData: Buffer,
-      outputPath: string,
-      _format?: string
-    ): Promise<Result<string, FileOperationError>> {
-      try {
-        // Ensure the directory exists
-        const directory = path.dirname(outputPath)
-        const dirResult = ensureDirectoryExists(directory)
-        if (!dirResult.success) {
-          return Err(dirResult.error)
-        }
+export async function saveImage(
+  imageData: Buffer,
+  outputPath: string
+): Promise<Result<string, FileOperationError>> {
+  try {
+    const directory = path.dirname(outputPath)
+    const dirResult = ensureDirectoryExists(directory)
+    if (!dirResult.success) {
+      return Err(dirResult.error)
+    }
 
-        // Save the file
-        await fs.writeFile(outputPath, imageData)
-
-        return Ok(outputPath)
-      } catch (error) {
-        return Err(
-          new FileOperationError(
-            `${ERROR_MESSAGES.SAVE_FAILED}: ${error instanceof Error ? error.message : 'Unknown error'}`
-          )
-        )
-      }
-    },
-
-    ensureDirectoryExists,
-    generateFileName,
+    await fs.writeFile(outputPath, imageData)
+    return Ok(outputPath)
+  } catch (error) {
+    return Err(
+      new FileOperationError(
+        `${ERROR_MESSAGES.SAVE_FAILED}: ${error instanceof Error ? error.message : 'Unknown error'}`
+      )
+    )
   }
 }

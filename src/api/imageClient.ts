@@ -2,9 +2,6 @@ import type { AspectRatio, ImageOutputFormat, ImageQuality, ImageSize } from '..
 import type { Result } from '../types/result.js'
 import type { GeminiAPIError, ImageAPIError, NetworkError } from '../utils/errors.js'
 
-/**
- * Provider-neutral metadata for generated images.
- */
 export interface ImageGenerationMetadata {
   model: string
   prompt: string
@@ -17,9 +14,6 @@ export interface ImageGenerationMetadata {
   revisedPrompt?: string
 }
 
-/**
- * Provider-neutral image generation/editing parameters.
- */
 export interface ImageApiParams {
   prompt: string
   inputImage?: string
@@ -31,17 +25,11 @@ export interface ImageApiParams {
   quality?: ImageQuality
 }
 
-/**
- * Result of image generation.
- */
 export interface GeneratedImageResult {
   imageData: Buffer
   metadata: ImageGenerationMetadata
 }
 
-/**
- * Provider-neutral image client.
- */
 export interface ImageClient {
   generateImage(
     params: ImageApiParams

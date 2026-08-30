@@ -1,9 +1,3 @@
-/**
- * Gemini Text Client for text generation
- * Pure API client for interacting with Google AI Studio
- * Handles text generation without any prompt optimization logic
- */
-
 import { GoogleGenAI } from '@google/genai'
 import type { Result } from '../types/result.js'
 import { Err, Ok } from '../types/result.js'
@@ -13,23 +7,14 @@ import { DEFAULT_MIME_TYPE } from '../utils/mimeUtils.js'
 import { isNetworkError } from './errorClassification.js'
 import { type GenerationConfig, MAX_TEXT_PROMPT_LENGTH, type TextClient } from './textClient.js'
 
-/**
- * Options for text generation
- */
 export type GeminiTextClient = TextClient
 
-/**
- * Default configuration for text generation
- */
 const DEFAULT_GENERATION_CONFIG = {
   temperature: 0.7,
   maxTokens: 8192,
   timeout: 15000,
 } as const
 
-/**
- * Interface for Gemini AI client instance
- */
 interface GeminiAIInstance {
   models: {
     generateContent(params: {
@@ -65,9 +50,6 @@ interface GeminiAIInstance {
   }
 }
 
-/**
- * Implementation of Gemini Text Client - pure API client
- */
 class GeminiTextClientImpl implements GeminiTextClient {
   private readonly modelName = 'gemini-2.5-flash'
   private readonly genai: GeminiAIInstance
@@ -82,20 +64,17 @@ class GeminiTextClientImpl implements GeminiTextClient {
     prompt: string,
     config: GenerationConfig = {}
   ): Promise<Result<string, GeminiAPIError | NetworkError>> {
-    // Merge with default configuration
     const mergedConfig = {
       ...DEFAULT_GENERATION_CONFIG,
       ...config,
     }
 
-    // Validate input
     const validationResult = this.validatePromptInput(prompt)
     if (!validationResult.success) {
       return validationResult
     }
 
     try {
-      // Call Gemini API
       const generatedText = await this.callGeminiAPI(prompt, mergedConfig)
       return Ok(generatedText)
     } catch (error) {
@@ -103,12 +82,8 @@ class GeminiTextClientImpl implements GeminiTextClient {
     }
   }
 
-  /**
-   * Call Gemini API to generate text
-   */
   private async callGeminiAPI(prompt: string, config: GenerationConfig): Promise<string> {
     try {
-      // Build contents based on whether input image is provided (multimodal support)
       let contents:
         | string
         | Array<{
@@ -117,7 +92,6 @@ class GeminiTextClientImpl implements GeminiTextClient {
           }>
 
       if (config.inputImage) {
-        // Multimodal request: combine image and text
         contents = [
           {
             parts: [
@@ -134,11 +108,9 @@ class GeminiTextClientImpl implements GeminiTextClient {
           },
         ]
       } else {
-        // Text-only request
         contents = prompt
       }
 
-      // Call Gemini API with timeout via AbortSignal
       const response = await this.genai.models.generateContent({
         model: this.modelName,
         contents,
@@ -157,7 +129,6 @@ class GeminiTextClientImpl implements GeminiTextClient {
         },
       })
 
-      // Extract text from response - handling both possible response structures
       let responseText: string
       if (typeof response.text === 'string') {
         responseText = response.text
@@ -175,29 +146,9 @@ class GeminiTextClientImpl implements GeminiTextClient {
 
       return responseText.trim()
     } catch (error) {
-      // Re-throw with context for proper error handling
       throw new Error(
         `Gemini API call failed: ${error instanceof Error ? error.message : 'Unknown error'}`
       )
-    }
-  }
-
-  async validateConnection(): Promise<Result<boolean, GeminiAPIError | NetworkError>> {
-    try {
-      // Validate by checking if the models object exists
-      if (!this.genai.models) {
-        return Err(
-          new GeminiAPIError(
-            'Failed to access Gemini models',
-            'Check your GEMINI_API_KEY configuration'
-          )
-        )
-      }
-
-      // API key validation happens during actual API calls
-      return Ok(true)
-    } catch (error) {
-      return this.handleError(error, 'connection validation')
     }
   }
 
@@ -207,7 +158,6 @@ class GeminiTextClientImpl implements GeminiTextClient {
   ): Result<never, GeminiAPIError | NetworkError> {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
 
-    // Check for network errors
     if (isNetworkError(error)) {
       return Err(
         new NetworkError(
@@ -217,7 +167,6 @@ class GeminiTextClientImpl implements GeminiTextClient {
       )
     }
 
-    // Check for API errors
     if (this.isAPIError(error)) {
       return Err(
         new GeminiAPIError(`Failed during Gemini ${context}`, {
@@ -229,7 +178,6 @@ class GeminiTextClientImpl implements GeminiTextClient {
       )
     }
 
-    // Generic error
     return Err(
       new GeminiAPIError(`Failed during Gemini ${context}`, {
         provider: 'gemini',
@@ -266,9 +214,6 @@ class GeminiTextClientImpl implements GeminiTextClient {
     return 'Check your API configuration and try again'
   }
 
-  /**
-   * Validate prompt input before processing
-   */
   private validatePromptInput(prompt: string): Result<true, GeminiAPIError> {
     if (!prompt || prompt.trim().length === 0) {
       return Err(
@@ -292,11 +237,6 @@ class GeminiTextClientImpl implements GeminiTextClient {
   }
 }
 
-/**
- * Creates a new Gemini Text Client for prompt generation
- * @param config Configuration containing API key and settings
- * @returns Result containing the client or an error
- */
 export function createGeminiTextClient(config: Config): Result<GeminiTextClient, GeminiAPIError> {
   try {
     return Ok(new GeminiTextClientImpl(config))

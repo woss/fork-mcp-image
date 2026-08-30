@@ -192,8 +192,8 @@ claude mcp add mcp-image --scope user --env GEMINI_API_KEY=your-api-key --env IM
 For OpenAI GPT Image from a local fork:
 
 ```bash
-npm install
-npm run build
+pnpm install
+pnpm run build
 claude mcp add mcp-image --scope user \
   --env IMAGE_PROVIDER=openai \
   --env OPENAI_API_KEY=your-openai-api-key \
@@ -372,8 +372,8 @@ The server uses a separate model for each of its two stages:
   },
   "metadata": {
     "model": "gemini-3.1-flash-image",
-    "provider": "gemini",
-    "processingTime": 5000,
+    "processingTime": 0,
+    "contextMethod": "structured_prompt",
     "timestamp": "2026-01-01T12:00:00.000Z"
   }
 }

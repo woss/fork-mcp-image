@@ -1,7 +1,3 @@
-/**
- * OpenAI API client for GPT Image generation and editing.
- */
-
 import OpenAI, { toFile } from 'openai'
 import type {
   ImageEditParamsNonStreaming,
@@ -293,9 +289,6 @@ class OpenAIImageClientImpl implements ImageClient {
   }
 }
 
-/**
- * Creates a new OpenAI image client.
- */
 export function createOpenAIImageClient(config: Config): Result<ImageClient, ImageAPIError> {
   try {
     const client = new OpenAI({

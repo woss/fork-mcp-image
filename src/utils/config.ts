@@ -1,30 +1,19 @@
-/**
- * Configuration management for MCP server
- * Handles environment variables and configuration validation
- */
-
 import type { ImageProvider, ImageQuality } from '../types/mcp.js'
 import { IMAGE_PROVIDER_VALUES, IMAGE_QUALITY_VALUES } from '../types/mcp.js'
 import type { Result } from '../types/result.js'
 import { Err, Ok } from '../types/result.js'
 import { ConfigError } from './errors.js'
 
-/**
- * Configuration interface
- */
 export interface Config {
   imageProvider: ImageProvider
   geminiApiKey: string
   openaiApiKey: string
   arkApiKey: string
   imageOutputDir: string
-  skipPromptEnhancement: boolean // Skip prompt enhancement for direct control
+  skipPromptEnhancement: boolean
   imageQuality: ImageQuality
 }
 
-/**
- * Default configuration values
- */
 const DEFAULT_CONFIG = {
   imageProvider: 'gemini',
   imageOutputDir: './output',
@@ -63,9 +52,6 @@ const PROVIDER_CREDENTIALS = {
  *
  * Provider selection is a per-request concern, so this check runs after each
  * request resolves its effective provider.
- * @param config The configuration holding the provider API keys
- * @param provider The provider whose credentials should be validated
- * @returns Result containing the config or ConfigError
  */
 export function validateProviderCredentials(
   config: Config,
@@ -86,13 +72,7 @@ export function validateProviderCredentials(
   return Ok(config)
 }
 
-/**
- * Validates the configuration
- * @param config The configuration to validate
- * @returns Result containing validated config or ConfigError
- */
 export function validateConfig(config: Config): Result<Config, ConfigError> {
-  // Validate IMAGE_PROVIDER
   if (!IMAGE_PROVIDER_VALUES.includes(config.imageProvider)) {
     return Err(
       new ConfigError(
@@ -102,7 +82,6 @@ export function validateConfig(config: Config): Result<Config, ConfigError> {
     )
   }
 
-  // Validate imageOutputDir (basic check - non-empty string)
   if (!config.imageOutputDir || config.imageOutputDir.trim().length === 0) {
     return Err(
       new ConfigError(
@@ -112,7 +91,6 @@ export function validateConfig(config: Config): Result<Config, ConfigError> {
     )
   }
 
-  // Validate imageQuality
   if (!IMAGE_QUALITY_VALUES.includes(config.imageQuality)) {
     return Err(
       new ConfigError(
@@ -125,10 +103,6 @@ export function validateConfig(config: Config): Result<Config, ConfigError> {
   return Ok(config)
 }
 
-/**
- * Loads configuration from environment variables
- * @returns Result containing config or ConfigError
- */
 export function getConfig(): Result<Config, ConfigError> {
   const config: Config = {
     imageProvider: (readEnv('IMAGE_PROVIDER') || DEFAULT_CONFIG.imageProvider) as ImageProvider,

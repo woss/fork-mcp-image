@@ -8,13 +8,13 @@
     "url": "https://github.com/shinpr/mcp-image",
     "source": "github"
   },
-  "version": "0.13.0",
+  "version": "0.13.1",
   "packages": [
     {
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "mcp-image",
-      "version": "0.13.0",
+      "version": "0.13.1",
       "transport": {
         "type": "stdio"
       },
@@ -49,7 +49,7 @@
         },
         {
           "name": "IMAGE_OUTPUT_DIR",
-          "description": "Absolute path to directory where generated images will be saved (defaults to ./output)",
+          "description": "Absolute or working-directory-relative path where generated images will be saved (defaults to ./output)",
           "isRequired": false,
           "format": "string",
           "isSecret": false
